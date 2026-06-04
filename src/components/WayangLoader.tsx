@@ -22,7 +22,7 @@ export default function WayangLoader() {
       clearTimeout(safetyTimer);
       safetyTimer = setTimeout(() => {
         setIsLoading(false);
-      }, 3000); 
+      }, 12000); // Increased from 3s to 12s to cover Vercel DB cold starts
     };
 
     const handleStop = () => {
