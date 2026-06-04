@@ -1316,14 +1316,14 @@ p, li, span, input, textarea, select {
 }
 
 /* Gamified Leaderboard styles */
-.leaderboard-list {
+.liga-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-top: 10px;
 }
 
-.leaderboard-item {
+.liga-item {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1334,12 +1334,12 @@ p, li, span, input, textarea, select {
   transition: var(--transition-fast);
 }
 
-.leaderboard-item.item-self {
+.liga-item.item-self {
   background: #FFFBEB;
   border-color: #FDE68A;
 }
 
-.leaderboard-rank {
+.liga-rank {
   font-weight: 800;
   font-size: 15px;
   width: 24px;
@@ -1350,25 +1350,25 @@ p, li, span, input, textarea, select {
 .rank-silver { color: #9CA3AF; }
 .rank-bronze { color: #B45309; }
 
-.leaderboard-avatar {
+.liga-avatar {
   font-size: 20px;
 }
 
-.leaderboard-name {
+.liga-name {
   flex-grow: 1;
   font-weight: 700;
   font-size: 14px;
   color: var(--text-dark);
 }
 
-.leaderboard-xp {
+.liga-xp {
   font-weight: 800;
   font-size: 13px;
   color: #D97706;
 }
 
 /* Daily Quests styles */
-.quest-item {
+.misi-item {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1378,21 +1378,21 @@ p, li, span, input, textarea, select {
   background: #FFFFFF;
 }
 
-.quest-checkbox {
+.misi-checkbox {
   width: 18px;
   height: 18px;
   accent-color: var(--color-green);
   cursor: default;
 }
 
-.quest-text {
+.misi-text {
   font-size: 13px;
   font-weight: 600;
   color: #374151;
   flex-grow: 1;
 }
 
-.quest-xp-badge {
+.misi-xp-badge {
   font-size: 10px;
   font-weight: 800;
   background: #FFFBEB;

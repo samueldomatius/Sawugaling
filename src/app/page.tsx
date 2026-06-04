@@ -1023,10 +1023,10 @@ export default function Home() {
               <h4 className="card-keraton-title">🎯 Misi Saben Dina</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {getDailyQuests().map(q => (
-                  <div key={q.id} className={`quest-item quest-item-keraton ${q.done ? 'done' : ''}`}>
-                    <input type="checkbox" checked={q.done} readOnly className="quest-checkbox" />
-                    <span className="quest-text" style={{ textDecoration: q.done ? 'line-through' : 'none', color: q.done ? 'var(--color-green-dark)' : '#6B3010', fontWeight: '700' }}>{q.text}</span>
-                    <span className="quest-xp-badge" style={{ background: q.done ? '#A2E078' : '#F2E6CC', color: q.done ? '#FFF' : '#D4A040', border: q.done ? 'none' : '1px solid #D4A040' }}>+{q.xp} XP</span>
+                  <div key={q.id} className={`misi-item misi-item-keraton ${q.done ? 'done' : ''}`}>
+                    <input type="checkbox" checked={q.done} readOnly className="misi-checkbox" />
+                    <span className="misi-text" style={{ textDecoration: q.done ? 'line-through' : 'none', color: q.done ? 'var(--color-green-dark)' : '#6B3010', fontWeight: '700' }}>{q.text}</span>
+                    <span className="misi-xp-badge" style={{ background: q.done ? '#A2E078' : '#F2E6CC', color: q.done ? '#FFF' : '#D4A040', border: q.done ? 'none' : '1px solid #D4A040' }}>+{q.xp} XP</span>
                   </div>
                 ))}
               </div>
@@ -1035,15 +1035,15 @@ export default function Home() {
             {/* Weekly Gamelan Leaderboard panel */}
             <div className="card-keraton" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <h4 className="card-keraton-title">🏆 Liga Gamelan</h4>
-              <div className="leaderboard-list">
+              <div className="liga-list">
                 {getLeaderboardList().map((player, index) => {
                   const medalColors = ['rank-gold', 'rank-silver', 'rank-bronze'];
                   return (
-                    <div key={index} className={`leaderboard-item ${player.isSelf ? 'item-self' : ''}`} style={{ background: player.isSelf ? 'rgba(232, 168, 48, 0.15)' : 'transparent', border: player.isSelf ? '2px solid #C9923A' : '2px solid transparent', borderRadius: '12px' }}>
-                      <span className={`leaderboard-rank ${index < 3 ? medalColors[index] : ''}`}>{index + 1}</span>
-                      <span className="leaderboard-avatar">{player.avatar}</span>
-                      <span className="leaderboard-name" style={{ color: '#6B3010', fontWeight: '800' }}>{player.name} {player.isSelf && '(Kowe)'}</span>
-                      <span className="leaderboard-xp" style={{ color: '#D4A040' }}>{player.xp} XP</span>
+                    <div key={index} className={`liga-item ${player.isSelf ? 'item-self' : ''}`} style={{ background: player.isSelf ? 'rgba(232, 168, 48, 0.15)' : 'transparent', border: player.isSelf ? '2px solid #C9923A' : '2px solid transparent', borderRadius: '12px' }}>
+                      <span className={`liga-rank ${index < 3 ? medalColors[index] : ''}`}>{index + 1}</span>
+                      <span className="liga-avatar">{player.avatar}</span>
+                      <span className="liga-name" style={{ color: '#6B3010', fontWeight: '800' }}>{player.name} {player.isSelf && '(Kowe)'}</span>
+                      <span className="liga-xp" style={{ color: '#D4A040' }}>{player.xp} XP</span>
                     </div>
                   );
                 })}
