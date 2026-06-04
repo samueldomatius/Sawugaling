@@ -1,0 +1,72 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String    @id @default(uuid())
+  uniqueCode   String    @unique // Kode rahasia login anak
+  name         String
+  className    String
+  xp           Int       @default(0)
+  hearts       Int       @default(5)
+  streak       Int       @default(0)
+  crowns       Int       @default(0)
+  inventory    String[]  
+  lastSpinTime DateTime?
+  registeredAt DateTime  @default(now())
+
+  chapterProgress ChapterProgress[]
+  scoreLogs       ScoreLog[]
+  visitorLogs     VisitorLog[]
+}
+
+model ChapterProgress {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  chapterId    Int
+  materiDone   Boolean  @default(false)
+  dhongengDone Boolean  @default(false)
+  lkpdScore    Int?
+  gameDone     Boolean  @default(false)
+
+  @@unique([userId, chapterId])
+}
+
+model ScoreLog {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  chapterId    Int
+  chapterTitle String
+  activityType String   // 'LKPD' atau 'GAME'
+  score        Int
+  maxScore     Int
+  timestamp    DateTime @default(now())
+}
+
+model VisitorLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  timestamp DateTime @default(now())
+}
+
+model CustomChapter {
+  id          Int      @id @default(autoincrement())
+  builtinId   Int?     @unique  // If set, this overrides a built-in chapter with that ID
+  title       String
+  description String
+  icon        String
+  materi      Json
+  dhongeng    Json
+  lkpd        Json
+  game        Json
+  createdAt   DateTime @default(now())
+}
