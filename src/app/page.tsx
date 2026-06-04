@@ -412,13 +412,13 @@ export default function Home() {
   const currentRank = getJavaneseRank(profile ? profile.xp : 0);
 
   const nodeCoords = [
-    { x: 110, y: 55 }, 
-    { x: 240, y: 165 }, 
-    { x: 370, y: 275 }, 
-    { x: 240, y: 395 } 
+    { x: 100, y: 55 }, 
+    { x: 210, y: 165 }, 
+    { x: 310, y: 275 }, 
+    { x: 190, y: 395 } 
   ];
 
-  const fullPathD = "M 110 55 C 110 120, 240 100, 240 165 C 240 230, 370 210, 370 275 C 370 340, 240 330, 240 395";
+  const fullPathD = "M 100 55 C 100 120, 210 100, 210 165 C 210 230, 310 210, 310 275 C 310 340, 190 330, 190 395";
 
   const getActivePinInfo = (): { chId: number; stepIdx: number; x: number; y: number } | null => {
     if (stats.totalUnlocked > chapters.length) return null; 
@@ -1137,7 +1137,9 @@ export default function Home() {
         onMouseOver={e => e.currentTarget.style.transform = 'scale(1.1)'}
         onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
       >
-        <span style={{ fontSize: '32px' }}>🦉</span>
+        <div style={{ marginTop: '4px', marginLeft: '6px' }}>
+          <MascotVisual mood="normal" width="56px" height="56px" />
+        </div>
       </button>
 
       {/* MASCOT DIALOGUE POP-UP MODAL OVERLAY */}

@@ -752,6 +752,26 @@ p, li, span, input, textarea, select {
   box-shadow: 0 6px 0 var(--color-blue-dark);
 }
 
+.mobile-nav-center-btn {
+  background: linear-gradient(135deg, var(--color-orange), var(--color-orange-dark));
+  color: white;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 0 #92400E, 0 8px 16px rgba(217, 119, 6, 0.4);
+  transform: translateY(-24px);
+  border: 3px solid #FFF8E0;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.mobile-nav-center-btn:active {
+  transform: translateY(-20px);
+  box-shadow: 0 0 0 #92400E, 0 4px 8px rgba(217, 119, 6, 0.4);
+}
+
 .chapter-header-banner::before {
   content: '';
   position: absolute;
