@@ -993,7 +993,7 @@ export default function Home() {
                   <button 
                     id="spin-wheel-btn"
                     className="btn-plakat-jati"
-                    style={{ padding: '10px 12px', fontSize: '11px', width: '100%' }}
+                    style={{ padding: '8px 12px', fontSize: '11px', width: '100%' }}
                     onClick={() => { playSaronChime(554); setShowSpinModal(true); }}
                   >
                     🎡 Roda Kabegjan (Muter)
@@ -1019,9 +1019,9 @@ export default function Home() {
             </div>
 
             {/* Daily Quests Checklists panel */}
-            <div className="card-keraton" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div className="card-keraton" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <h4 className="card-keraton-title">🎯 Misi Saben Dina</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {getDailyQuests().map(q => (
                   <div key={q.id} className={`misi-item misi-item-keraton ${q.done ? 'done' : ''}`}>
                     <input type="checkbox" checked={q.done} readOnly className="misi-checkbox" />
@@ -1033,7 +1033,7 @@ export default function Home() {
             </div>
 
             {/* Weekly Gamelan Leaderboard panel */}
-            <div className="card-keraton" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div className="card-keraton" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <h4 className="card-keraton-title">🏆 Liga Gamelan</h4>
               <div className="liga-list">
                 {getLeaderboardList().map((player, index) => {
@@ -1052,13 +1052,13 @@ export default function Home() {
 
             {/* Thursday Banner Card */}
             {isThursday && (
-              <div className="thursday-banner-card" style={{ gap: '6px', padding: '12px' }}>
-                <span className="thursday-tag" style={{ padding: '2px 6px', fontSize: '10px' }}>Aktif Kamis</span>
-                <span className="thursday-text" style={{ fontSize: '12px', lineHeight: '1.4' }}>
+              <div className="thursday-banner-card">
+                <span className="thursday-tag">Aktif Kamis</span>
+                <span className="thursday-text">
                   Dina iki dina Kamis! Ayo sinau tata krama basa Jawa / Unggah-Ungguh ing kaca khusus.
                 </span>
                 <Link href="/kamis">
-                  <button className="btn-duo btn-duo-orange" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => playSaronChime()}>
+                  <button className="btn-duo btn-duo-orange" style={{ padding: '10px 16px', fontSize: '13px' }} onClick={() => playSaronChime()}>
                     Sinau Unggah-Ungguh ➔
                   </button>
                 </Link>
