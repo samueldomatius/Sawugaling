@@ -24,7 +24,7 @@ export async function getProfile(uniqueCode: string) {
 
 export async function registerUser(uniqueCode: string, name: string, className: string) {
   const existing = await prisma.user.findUnique({ where: { uniqueCode } });
-  if (existing) throw new Error("Unique code already taken");
+  if (existing) return { error: "Sandi Rahasia iki wis dienggo wong liya! Coba ganti sandi liyane." };
   
   await prisma.user.create({
     data: {
@@ -42,7 +42,7 @@ export async function registerUser(uniqueCode: string, name: string, className: 
 
 export async function loginUser(uniqueCode: string) {
   const user = await prisma.user.findUnique({ where: { uniqueCode } });
-  if (!user) throw new Error("User not found");
+  if (!user) return { error: "Sandi Rahasia ora ditemokake. Coba maneh utawa Daftar Anyar dhisik." };
   
   // Log visitor
   await prisma.visitorLog.create({

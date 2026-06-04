@@ -81,12 +81,14 @@ export const getStudentProfile = async () => {
 };
 
 export const registerStudent = async (code: string, name: string, className: string) => {
-  await actions.registerUser(code, name, className);
+  const res = await actions.registerUser(code, name, className);
+  if (res && res.error) throw new Error(res.error);
   setUniqueCode(code);
 };
 
 export const loginStudent = async (code: string) => {
-  await actions.loginUser(code);
+  const res = await actions.loginUser(code);
+  if (res && res.error) throw new Error(res.error);
   setUniqueCode(code);
 };
 
