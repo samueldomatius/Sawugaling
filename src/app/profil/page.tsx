@@ -69,10 +69,16 @@ function ProfileInner() {
     if (!currentProfile) {
       setShowRegister(true);
     }
-    setCh1Prog(await getChapterProgress(1));
-    setCh2Prog(await getChapterProgress(2));
-    setCh3Prog(await getChapterProgress(3));
-    setCh4Prog(await getChapterProgress(4));
+    const [p1, p2, p3, p4] = await Promise.all([
+      getChapterProgress(1),
+      getChapterProgress(2),
+      getChapterProgress(3),
+      getChapterProgress(4)
+    ]);
+    setCh1Prog(p1);
+    setCh2Prog(p2);
+    setCh3Prog(p3);
+    setCh4Prog(p4);
     window.dispatchEvent(new Event('stop-loading'));
   };
 

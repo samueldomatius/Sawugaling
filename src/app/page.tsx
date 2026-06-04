@@ -44,31 +44,37 @@ export default function Home() {
   const [tutorialStep, setTutorialStep] = useState<number | null>(null);
 
   const refreshState = useCallback(async () => {
-    const currentProfile = await getStudentProfile();
+    // 1. Load local chapters immediately so UI can construct the map skeleton
+    const list = await getChaptersList();
+    setChapters(list);
+    setIsThursday(isThursdayMode());
+
+    // 2. Fetch all remote database data concurrently (Profile + All Chapter Progress)
+    // This prevents the dreaded waterfall delay (e.g. 5x 500ms sequential = 2.5s -> now ~500ms total)
+    const [currentProfile, ...progressResults] = await Promise.all([
+      getStudentProfile(),
+      ...list.map(ch => getChapterProgress(ch.id))
+    ]);
+
     setProfile(currentProfile);
     if (!currentProfile) {
       setShowRegister(true);
     }
-
-    setIsThursday(isThursdayMode());
-
-    const list = await getChaptersList();
-    setChapters(list);
 
     const progresses: { [id: number]: ChapterProgress } = {};
     let unlockedCount = 1;
     let completedActivities = 0;
     const totalActivities = list.length * 4; 
 
-    for (const ch of list) {
-      const prog = await getChapterProgress(ch.id);
+    list.forEach((ch, index) => {
+      const prog = progressResults[index];
       progresses[ch.id] = prog;
       
       if (prog.materiDone) completedActivities++;
       if (prog.dhongengDone) completedActivities++;
       if (prog.lkpdScore !== null) completedActivities++;
       if (prog.gameDone) completedActivities++;
-    }
+    });
 
     const ch1 = progresses[1];
     const ch1Completed = ch1 && ch1.materiDone && ch1.dhongengDone && (ch1.lkpdScore !== null) && ch1.gameDone;
