@@ -17,15 +17,17 @@ export default function Home() {
   const [stats, setStats] = useState({ totalUnlocked: 1, totalDone: 0, overallProgress: 0 });
   const [chapters, setChapters] = useState<Chapter[]>([]);
 
-  // Curtain Splash Screen States
-  const [showIntro, setShowIntro] = useState(() => {
-    if (typeof window !== 'undefined') return sessionStorage.getItem('sinau_jawa_curtain_opened') !== 'true';
-    return true;
-  });
-  const [isCurtainOpen, setIsCurtainOpen] = useState(() => {
-    if (typeof window !== 'undefined') return sessionStorage.getItem('sinau_jawa_curtain_opened') === 'true';
-    return false;
-  });
+  const [showIntro, setShowIntro] = useState(true);
+  const [isCurtainOpen, setIsCurtainOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    if (sessionStorage.getItem('sinau_jawa_curtain_opened') === 'true') {
+      setShowIntro(false);
+      setIsCurtainOpen(true);
+    }
+  }, []);
 
   // Chest popup state
   const [showChestModal, setShowChestModal] = useState(false);
@@ -442,6 +444,8 @@ export default function Home() {
   };
 
   const activePin = getActivePinInfo();
+
+  if (!isMounted) return null;
 
   return (
     <>

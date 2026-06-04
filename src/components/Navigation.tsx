@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { StudentProfile } from '@/lib/db';
 
 interface NavigationProps {
@@ -13,6 +13,7 @@ interface NavigationProps {
 
 export default function Navigation({ profile, onOpenLogin }: NavigationProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const handleStopSpeech = () => {
     if (typeof window !== 'undefined') {
@@ -181,7 +182,7 @@ export default function Navigation({ profile, onOpenLogin }: NavigationProps) {
         ].map((item) => {
           const isProfil = item.path === '/profil';
           const isPohon = item.path.includes('tab=pohon');
-          const currentTab = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tab') : null;
+          const currentTab = searchParams.get('tab');
           
           let isActive = false;
           if (isPohon) {
