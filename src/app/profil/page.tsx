@@ -5,7 +5,7 @@ import Navigation from '@/components/Navigation';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import RegisterModal from '@/components/RegisterModal';
-import { getStudentProfile, StudentProfile, getChapterProgress, getJavaneseRank } from '@/lib/db';
+import { getStudentProfile, StudentProfile, getChapterProgress, getAllChapterProgresses, getJavaneseRank } from '@/lib/db';
 import { playSaronChime, playWelcomeGamelan, playSuccessChime } from '@/lib/audio';
 
 function ProfileInner() {
@@ -64,21 +64,27 @@ function ProfileInner() {
   const [waringinTooltip, setWaringinTooltip] = useState<string | null>(null);
 
   const loadProfileData = async () => {
-    const currentProfile = await getStudentProfile();
+    // We run getStudentProfile and getAllChapterProgresses concurrently.
+    // This reduces the previous 5 concurrent requests down to just 2 requests, solving the N+1 problem.
+    const [currentProfile, allProgress] = await Promise.all([
+      getStudentProfile(),
+      getAllChapterProgresses()
+    ]);
+    
     setProfile(currentProfile);
     if (!currentProfile) {
       setShowRegister(true);
     }
-    const [p1, p2, p3, p4] = await Promise.all([
-      getChapterProgress(1),
-      getChapterProgress(2),
-      getChapterProgress(3),
-      getChapterProgress(4)
-    ]);
-    setCh1Prog(p1);
-    setCh2Prog(p2);
-    setCh3Prog(p3);
-    setCh4Prog(p4);
+
+    const safeProg = (id: number) => {
+      const p = allProgress.find((prog: any) => prog.chapterId === id);
+      return p || defaultProg;
+    };
+    
+    setCh1Prog(safeProg(1));
+    setCh2Prog(safeProg(2));
+    setCh3Prog(safeProg(3));
+    setCh4Prog(safeProg(4));
     window.dispatchEvent(new Event('stop-loading'));
   };
 

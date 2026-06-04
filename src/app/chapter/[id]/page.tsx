@@ -608,7 +608,7 @@ function ChapterDetailInner({ params }: PageProps) {
                                   padding: '12px 16px',
                                   cursor: 'pointer',
                                   margin: 0,
-                                  backgroundColor: isSelected ? '#FEF3C7' : '#FFFFFF',
+                                  background: isSelected ? '#FEF3C7' : undefined,
                                   borderColor: isSelected ? 'var(--color-orange)' : 'var(--border-light)',
                                   borderBottomWidth: '4px'
                                 }}
@@ -714,7 +714,7 @@ function ChapterDetailInner({ params }: PageProps) {
                                   padding: '14px 18px', 
                                   cursor: 'pointer', 
                                   margin: 0,
-                                  backgroundColor: isSelected ? '#F0FDF4' : '#FFFFFF',
+                                  background: isSelected ? '#F0FDF4' : undefined,
                                   borderColor: isSelected ? 'var(--color-green)' : 'var(--border-light)',
                                   borderBottomWidth: '4px',
                                   display: 'flex',
