@@ -55,7 +55,10 @@ export async function loginUser(uniqueCode: string) {
     await prisma.visitorLog.create({
       data: { userId: user.id }
     });
-    return user;
+    return {
+      success: true,
+      uniqueCode: user.uniqueCode
+    };
   } catch (e: any) {
     console.error("Prisma Login Error:", e);
     return { error: `Database Error: ${e.message || String(e)}` };
