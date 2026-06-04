@@ -67,6 +67,11 @@ export const playGongResonance = (timeOffset: number = 0): void => {
     oscBase.type = 'sine';
     oscBase.frequency.setValueAtTime(110, now);
     
+    // Ombak (Characteristic Javanese Gong beating frequency)
+    const oscOmbak = ctx.createOscillator();
+    oscOmbak.type = 'sine';
+    oscOmbak.frequency.setValueAtTime(111.5, now); // 1.5Hz beat effect
+    
     // Harmonics for rich brass quality
     const oscHarmonic1 = ctx.createOscillator();
     oscHarmonic1.type = 'triangle';
@@ -78,15 +83,16 @@ export const playGongResonance = (timeOffset: number = 0): void => {
 
     // Gain nodes
     const gainBase = ctx.createGain();
-    gainBase.gain.setValueAtTime(0.7, now);
-    gainBase.gain.exponentialRampToValueAtTime(0.001, now + 2.5); // Resonates for 2.5s
+    gainBase.gain.setValueAtTime(0.6, now);
+    gainBase.gain.exponentialRampToValueAtTime(0.001, now + 3.5); // Long resonance
 
     const gainHarmonic = ctx.createGain();
-    gainHarmonic.gain.setValueAtTime(0.2, now);
-    gainHarmonic.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+    gainHarmonic.gain.setValueAtTime(0.15, now);
+    gainHarmonic.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
 
     // Connections
     oscBase.connect(gainBase);
+    oscOmbak.connect(gainBase);
     oscHarmonic1.connect(gainHarmonic);
     oscHarmonic2.connect(gainHarmonic);
     
@@ -95,12 +101,14 @@ export const playGongResonance = (timeOffset: number = 0): void => {
 
     // Play
     oscBase.start(now);
+    oscOmbak.start(now);
     oscHarmonic1.start(now);
     oscHarmonic2.start(now);
     
-    oscBase.stop(now + 3.0);
-    oscHarmonic1.stop(now + 2.0);
-    oscHarmonic2.stop(now + 2.0);
+    oscBase.stop(now + 4.0);
+    oscOmbak.stop(now + 4.0);
+    oscHarmonic1.stop(now + 2.2);
+    oscHarmonic2.stop(now + 2.2);
   } catch (err) {
     console.warn('Gong sound error:', err);
   }
@@ -109,13 +117,28 @@ export const playGongResonance = (timeOffset: number = 0): void => {
 // Sequences a Javanese pentatonic melody (Slendro) welcome tune
 export const playWelcomeGamelan = (): void => {
   try {
-    playSaronChime(440, 0, 0.5);
-    playSaronChime(490, 0.25, 0.5);
-    playSaronChime(550, 0.5, 0.5);
-    playSaronChime(660, 0.75, 0.5);
-    playSaronChime(740, 1.0, 0.6);
-    playSaronChime(550, 1.25, 0.7);
-    playGongResonance(1.5);
+    // Demung/Saron Melody (Balungan)
+    playSaronChime(550, 0.0, 0.6);
+    playSaronChime(660, 0.3, 0.6);
+    playSaronChime(740, 0.6, 0.6);
+    playSaronChime(660, 0.9, 0.6);
+    playSaronChime(550, 1.2, 0.6);
+    playSaronChime(490, 1.5, 0.6);
+    playSaronChime(440, 1.8, 1.2);
+    
+    // Bonang Interlocking (Faster higher octave)
+    playSaronChime(1100, 0.15, 0.3);
+    playSaronChime(1320, 0.45, 0.3);
+    playSaronChime(1480, 0.75, 0.3);
+    playSaronChime(1320, 1.05, 0.3);
+    playSaronChime(1100, 1.35, 0.3);
+    
+    // Kenong (Punctuation on beats)
+    playSaronChime(275, 0.6, 1.5);
+    playSaronChime(220, 1.8, 1.5);
+
+    // Final Grand Gong
+    playGongResonance(1.8);
   } catch (err) {
     console.warn('Welcome gamelan sequence error:', err);
   }
@@ -128,31 +151,54 @@ export const startAmbientGamelan = (): void => {
   
   try {
     const ctx = getAudioContext();
-    const notes = [440, 490, 550, 660, 740, 660, 550, 490]; // Slendro pattern
-    let index = 0;
+    // Slendro scales for ensemble
+    const balungan = [440, 490, 550, 660, 740, 660, 550, 490]; 
+    const peking = [880, 980, 1100, 1320, 1480]; 
+    let tick = 0;
     
     ambientInterval = setInterval(() => {
       try {
         const now = ctx.currentTime;
-        const freq = notes[index];
-        index = (index + 1) % notes.length;
         
-        // Low warm octave
-        const osc = ctx.createOscillator();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq / 2, now);
+        // Balungan (Main melody) plays every 2 ticks
+        if (tick % 2 === 0) {
+          const bFreq = balungan[(tick / 2) % balungan.length];
+          const osc1 = ctx.createOscillator();
+          osc1.type = 'triangle';
+          osc1.frequency.setValueAtTime(bFreq / 2, now); // Demung register
+          const gain1 = ctx.createGain();
+          gain1.gain.setValueAtTime(0.05, now); // Ambient volume
+          gain1.gain.exponentialRampToValueAtTime(0.0001, now + 2.5);
+          osc1.connect(gain1); gain1.connect(ctx.destination);
+          osc1.start(now); osc1.stop(now + 2.6);
+        }
         
-        const gainNode = ctx.createGain();
-        gainNode.gain.setValueAtTime(0.04, now); // Quiet ambient volume
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 2.2);
+        // Peking/Bonang (Fast interlocking) plays every tick
+        const pFreq = peking[tick % peking.length];
+        const osc2 = ctx.createOscillator();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(pFreq, now);
+        const gain2 = ctx.createGain();
+        gain2.gain.setValueAtTime(0.015, now);
+        gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+        osc2.connect(gain2); gain2.connect(ctx.destination);
+        osc2.start(now); osc2.stop(now + 1.0);
         
-        osc.connect(gainNode);
-        gainNode.connect(ctx.destination);
-        
-        osc.start(now);
-        osc.stop(now + 2.4);
+        // Distant Gong every 16 ticks
+        if (tick > 0 && tick % 16 === 0) {
+           const oscGong = ctx.createOscillator();
+           oscGong.type = 'sine';
+           oscGong.frequency.setValueAtTime(55, now); // Very low sub-gong
+           const gainGong = ctx.createGain();
+           gainGong.gain.setValueAtTime(0.25, now);
+           gainGong.gain.exponentialRampToValueAtTime(0.0001, now + 4.0);
+           oscGong.connect(gainGong); gainGong.connect(ctx.destination);
+           oscGong.start(now); oscGong.stop(now + 4.2);
+        }
+
+        tick++;
       } catch (e) {}
-    }, 1500); // Trigger tone every 1.5s
+    }, 750); // Faster tempo for ensemble feel (750ms per tick)
   } catch (err) {
     console.warn('Ambient Gamelan error:', err);
   }

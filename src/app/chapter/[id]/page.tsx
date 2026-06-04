@@ -5,10 +5,16 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getChaptersList, getChapterProgress, updateChapterProgress, logScore, getStudentProfile, StudentProfile, deductHeart, addXP, addCrown } from '@/lib/db';
 import { playSaronChime, playGongResonance, playErrorChime, speakJavaneseText, stopSpeech, playSuccessChime } from '@/lib/audio';
 import { Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import Navigation from '@/components/Navigation';
-import RegisterModal from '@/components/RegisterModal';
-import AksaraGame from '@/components/AksaraGame';
-import MascotVisual, { MascotMood } from '@/components/MascotVisual';
+import { MascotMood } from '@/components/MascotVisual';
+
+const RegisterModal = dynamic(() => import('@/components/RegisterModal'), { ssr: false });
+const MascotVisual = dynamic(() => import('@/components/MascotVisual'), { ssr: false });
+const AksaraGame = dynamic(() => import('@/components/AksaraGame'), { 
+  ssr: false,
+  loading: () => <p style={{ textAlign: 'center', padding: '20px' }}>⏳ Memuat Permainan...</p> 
+});
 import { Chapter } from '@/lib/chaptersData';
 
 interface PageProps {

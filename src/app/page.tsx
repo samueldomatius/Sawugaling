@@ -1,13 +1,24 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { getChapterProgress, ChapterProgress, isThursdayMode, StudentProfile, getStudentProfile, clearStudentProfile, getChaptersList, getJavaneseRank, purchaseItem, claimSpinReward } from '@/lib/db';
 import { playSaronChime, playWelcomeGamelan, startAmbientGamelan, playSpinTick, playSuccessChime } from '@/lib/audio';
+import dynamic from 'next/dynamic';
 import Navigation from '@/components/Navigation';
-import RegisterModal from '@/components/RegisterModal';
-import MascotVisual from '@/components/MascotVisual';
 import { Chapter } from '@/lib/chaptersData';
+
+const RegisterModal = dynamic(() => import('@/components/RegisterModal'), { ssr: false });
+const MascotVisual = dynamic(() => import('@/components/MascotVisual'), { ssr: false });
+
+const nodeCoords = [
+  { x: 100, y: 55 }, 
+  { x: 210, y: 165 }, 
+  { x: 310, y: 275 }, 
+  { x: 190, y: 395 } 
+];
+
+const fullPathD = "M 100 55 C 100 120, 210 100, 210 165 C 210 230, 310 210, 310 275 C 310 340, 190 330, 190 395";
 
 export default function Home() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
@@ -382,7 +393,7 @@ export default function Home() {
   };
 
   // Generate dynamic Weekly Leaderboard ranking based on Student Profile XP
-  const getLeaderboardList = () => {
+  const leaderboardList = useMemo(() => {
     const studentName = profile ? profile.name : 'Kamu (Tamu)';
     const studentXp = profile ? profile.xp : 0;
     
@@ -395,17 +406,17 @@ export default function Home() {
     ];
 
     return list.sort((a, b) => b.xp - a.xp);
-  };
+  }, [profile]);
 
   // Check interactive state of daily quests based on local storage
-  const getDailyQuests = () => {
+  const dailyQuests = useMemo(() => {
     const ch1Prog = chapterProgresses[1] || { materiDone: false, dhongengDone: false, lkpdScore: null, gameDone: false };
     return [
       { id: 'q1', text: 'Maca Teks Dongeng Bab 1', done: ch1Prog.dhongengDone, xp: 10 },
       { id: 'q2', text: 'Entuk Biji LKPD Bab 1', done: ch1Prog.lkpdScore !== null, xp: 15 },
       { id: 'q3', text: 'Rampungna Game Aksara 1', done: ch1Prog.gameDone, xp: 20 }
     ];
-  };
+  }, [chapterProgresses]);
 
   const getMascotGreetingText = () => {
     if (stats.overallProgress === 100) {
@@ -419,16 +430,7 @@ export default function Home() {
 
   const currentRank = getJavaneseRank(profile ? profile.xp : 0);
 
-  const nodeCoords = [
-    { x: 100, y: 55 }, 
-    { x: 210, y: 165 }, 
-    { x: 310, y: 275 }, 
-    { x: 190, y: 395 } 
-  ];
-
-  const fullPathD = "M 100 55 C 100 120, 210 100, 210 165 C 210 230, 310 210, 310 275 C 310 340, 190 330, 190 395";
-
-  const getActivePinInfo = (): { chId: number; stepIdx: number; x: number; y: number } | null => {
+  const activePin = useMemo(() => {
     if (stats.totalUnlocked > chapters.length) return null; 
     const activeChId = stats.totalUnlocked;
     const prog = chapterProgresses[activeChId] || { materiDone: false, dhongengDone: false, lkpdScore: null, gameDone: false };
@@ -443,9 +445,9 @@ export default function Home() {
     
     const coord = nodeCoords[stepIdx - 1];
     return { chId: activeChId, stepIdx, x: coord.x, y: coord.y };
-  };
+  }, [stats.totalUnlocked, chapterProgresses, chapters.length]);
 
-  const activePin = getActivePinInfo();
+
 
   if (!isMounted) return null;
 
@@ -1078,7 +1080,7 @@ export default function Home() {
             <div className="card-keraton" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <h4 className="card-keraton-title">🎯 Misi Saben Dina</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {getDailyQuests().map(q => (
+                {dailyQuests.map(q => (
                   <div key={q.id} className={`misi-item misi-item-keraton ${q.done ? 'done' : ''}`}>
                     <input type="checkbox" checked={q.done} readOnly className="misi-checkbox" />
                     <span className="misi-text" style={{ textDecoration: q.done ? 'line-through' : 'none', color: q.done ? 'var(--color-green-dark)' : '#6B3010', fontWeight: '700' }}>{q.text}</span>
@@ -1092,7 +1094,7 @@ export default function Home() {
             <div className="card-keraton" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <h4 className="card-keraton-title">🏆 Liga Gamelan</h4>
               <div className="liga-list">
-                {getLeaderboardList().map((player, index) => {
+                {leaderboardList.map((player, index) => {
                   const medalColors = ['rank-gold', 'rank-silver', 'rank-bronze'];
                   return (
                     <div key={index} className={`liga-item ${player.isSelf ? 'item-self' : ''}`} style={{ background: player.isSelf ? 'rgba(232, 168, 48, 0.15)' : 'transparent', border: player.isSelf ? '2px solid #C9923A' : '2px solid transparent', borderRadius: '12px' }}>
