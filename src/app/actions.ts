@@ -23,32 +23,43 @@ export async function getProfile(uniqueCode: string) {
 }
 
 export async function registerUser(uniqueCode: string, name: string, className: string) {
-  const existing = await prisma.user.findUnique({ where: { uniqueCode } });
-  if (existing) return { error: "Sandi Rahasia iki wis dienggo wong liya! Coba ganti sandi liyane." };
-  
-  await prisma.user.create({
-    data: {
-      uniqueCode,
-      name,
-      className,
-      xp: 0,
-      hearts: 5,
-      streak: 0,
-      crowns: 0,
-      inventory: [],
-    }
-  });
+  try {
+    const existing = await prisma.user.findUnique({ where: { uniqueCode } });
+    if (existing) return { error: "Sandi Rahasia iki wis dienggo wong liya! Coba ganti sandi liyane." };
+    
+    await prisma.user.create({
+      data: {
+        uniqueCode,
+        name,
+        className,
+        xp: 0,
+        hearts: 5,
+        streak: 0,
+        crowns: 0,
+        inventory: [],
+      }
+    });
+    return { success: true };
+  } catch (e: any) {
+    console.error("Prisma Register Error:", e);
+    return { error: `Database Error: ${e.message || String(e)}` };
+  }
 }
 
 export async function loginUser(uniqueCode: string) {
-  const user = await prisma.user.findUnique({ where: { uniqueCode } });
-  if (!user) return { error: "Sandi Rahasia ora ditemokake. Coba maneh utawa Daftar Anyar dhisik." };
-  
-  // Log visitor
-  await prisma.visitorLog.create({
-    data: { userId: user.id }
-  });
-  return user;
+  try {
+    const user = await prisma.user.findUnique({ where: { uniqueCode } });
+    if (!user) return { error: "Sandi Rahasia ora ditemokake. Coba maneh utawa Daftar Anyar dhisik." };
+    
+    // Log visitor
+    await prisma.visitorLog.create({
+      data: { userId: user.id }
+    });
+    return user;
+  } catch (e: any) {
+    console.error("Prisma Login Error:", e);
+    return { error: `Database Error: ${e.message || String(e)}` };
+  }
 }
 
 export async function getChapterProgress(uniqueCode: string, chapterId: number) {
