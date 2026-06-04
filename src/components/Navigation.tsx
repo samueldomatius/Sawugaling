@@ -178,8 +178,19 @@ export default function Navigation({ profile, onOpenLogin }: NavigationProps) {
           menuItems[3], // Pasar Pusaka (Shop)
           menuItems[2], // Profil
         ].map((item) => {
-          // Fix matching logic specifically for dynamic tab redirection on profile page
-          const isActive = (item.path.startsWith('/profil') && pathname === '/profil') || pathname === item.path;
+          const isProfil = item.path === '/profil';
+          const isPohon = item.path.includes('tab=pohon');
+          const currentTab = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tab') : null;
+          
+          let isActive = false;
+          if (isPohon) {
+             isActive = pathname === '/profil' && currentTab === 'pohon';
+          } else if (isProfil) {
+             isActive = pathname === '/profil' && currentTab !== 'pohon';
+          } else {
+             isActive = pathname === item.path;
+          }
+
           return (
             <Link 
               key={item.name} 

@@ -18,8 +18,14 @@ export default function Home() {
   const [chapters, setChapters] = useState<Chapter[]>([]);
 
   // Curtain Splash Screen States
-  const [showIntro, setShowIntro] = useState(true);
-  const [isCurtainOpen, setIsCurtainOpen] = useState(false);
+  const [showIntro, setShowIntro] = useState(() => {
+    if (typeof window !== 'undefined') return sessionStorage.getItem('sinau_jawa_curtain_opened') !== 'true';
+    return true;
+  });
+  const [isCurtainOpen, setIsCurtainOpen] = useState(() => {
+    if (typeof window !== 'undefined') return sessionStorage.getItem('sinau_jawa_curtain_opened') === 'true';
+    return false;
+  });
 
   // Chest popup state
   const [showChestModal, setShowChestModal] = useState(false);
