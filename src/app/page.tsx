@@ -448,15 +448,54 @@ export default function Home() {
   const activePin = getActivePinInfo();
 
   if (!isMounted) return null;
-  if (!isDataLoaded) return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'url("/pattern.png"), linear-gradient(135deg, #FFF9E6 0%, #F5E8C7 100%)' }}>
-      <div style={{ fontSize: '64px', animation: 'pin-bounce 1s infinite ease-in-out' }}>👦</div>
-      <div style={{ marginTop: '24px', fontSize: '20px', fontWeight: '800', color: '#6B3010', letterSpacing: '0.05em' }}>Nyiapake Peta...</div>
-    </div>
-  );
 
   return (
     <>
+      <style>{`
+        @keyframes spin-loader {
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
+      
+      {/* 1. GULUNGAN LOADING SCREEN (Hanya untuk pengguna lama yang skip intro) */}
+      {!showIntro && !isDataLoaded && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'url("/pattern.png"), linear-gradient(135deg, #FFF9E6 0%, #F5E8C7 100%)' }}>
+          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', animation: 'pin-bounce 2s infinite ease-in-out' }}>
+            {/* Top Roller */}
+            <div style={{ width: '280px', height: '24px', background: 'linear-gradient(to bottom, #5c3a21, #3e2615)', borderRadius: '12px', boxShadow: '0 4px 10px rgba(0,0,0,0.3)', zIndex: 2, position: 'relative' }}>
+              <div style={{ position: 'absolute', left: '-10px', top: '2px', width: '20px', height: '20px', background: '#3e2615', borderRadius: '50%', boxShadow: 'inset 0 0 5px #000' }} />
+              <div style={{ position: 'absolute', right: '-10px', top: '2px', width: '20px', height: '20px', background: '#3e2615', borderRadius: '50%', boxShadow: 'inset 0 0 5px #000' }} />
+            </div>
+            
+            {/* Lontar Paper */}
+            <div style={{ 
+              width: '240px', 
+              background: 'linear-gradient(180deg, #FDF8E7 0%, #F4E4BA 100%)', 
+              padding: '30px 20px', 
+              borderLeft: '3px solid #D4A040', 
+              borderRight: '3px solid #D4A040', 
+              boxShadow: 'inset 0 0 30px rgba(138, 85, 6, 0.15), 0 10px 20px rgba(0,0,0,0.15)', 
+              textAlign: 'center', 
+              position: 'relative', 
+              zIndex: 1, 
+              marginTop: '-10px',
+              marginBottom: '-10px',
+              backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' viewBox=\'0 0 40 40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M20 20.5V18H0v-2h20v-2H0v-2h20v-2H0V8h20V6H0V4h20V2H0V0h22v20h2V0h2v20h2V0h2v20h2V0h2v20h2V0h2v20h2v2H20v-1.5z\' fill=\'%23d4a040\' fill-opacity=\'0.1\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")'
+            }}>
+              <h3 style={{ fontFamily: 'var(--font-decorative)', color: '#6B3010', margin: 0, fontSize: '22px', letterSpacing: '0.05em' }}>꧁ Nyiapake Peta ꧂</h3>
+              <p style={{ color: '#8A5506', fontSize: '14px', marginTop: '12px', fontStyle: 'italic', fontWeight: '600' }}>Mbukak gulungan kuno...</p>
+              <div style={{ fontSize: '32px', marginTop: '16px' }}>📜</div>
+            </div>
+
+            {/* Bottom Roller */}
+            <div style={{ width: '280px', height: '24px', background: 'linear-gradient(to top, #5c3a21, #3e2615)', borderRadius: '12px', boxShadow: '0 -2px 10px rgba(0,0,0,0.2)', zIndex: 2, position: 'relative' }}>
+              <div style={{ position: 'absolute', left: '-10px', top: '2px', width: '20px', height: '20px', background: '#3e2615', borderRadius: '50%', boxShadow: 'inset 0 0 5px #000' }} />
+              <div style={{ position: 'absolute', right: '-10px', top: '2px', width: '20px', height: '20px', background: '#3e2615', borderRadius: '50%', boxShadow: 'inset 0 0 5px #000' }} />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* TRADITIONAL CURTAIN / GAMELAN INTRO OVERLAY */}
       {showIntro && (
         <div className={`curtain-screen ${isCurtainOpen ? 'curtains-open' : ''}`}>
@@ -471,21 +510,30 @@ export default function Home() {
             </svg>
             <h1 className="curtain-title">SINAU JAWA</h1>
             <p className="curtain-subtitle">Game Petualangan Basa & Aksara Jawa Klasik</p>
-            <button 
-              className="btn-duo btn-duo-primary"
-              onClick={handleStartAdventure}
-              style={{ 
-                width: 'auto', 
-                padding: '14px 36px', 
-                fontSize: '16px', 
-                backgroundColor: 'var(--color-gold)', 
-                borderColor: 'var(--color-gold)',
-                borderBottomColor: 'var(--color-gold-dark)',
-                color: '#1F2937'
-              }}
-            >
-              Mulai Petualangan ➔
-            </button>
+            
+            {!isDataLoaded ? (
+              <div style={{ marginTop: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ width: '32px', height: '32px', border: '4px solid rgba(245, 208, 97, 0.2)', borderTopColor: '#F5D061', borderRadius: '50%', animation: 'spin-loader 1s linear infinite' }}></div>
+                <span style={{ color: '#F5D061', marginTop: '12px', fontSize: '13px', fontWeight: '800', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Nyiapake Peta...</span>
+              </div>
+            ) : (
+              <button 
+                className="btn-duo btn-duo-primary"
+                onClick={handleStartAdventure}
+                style={{ 
+                  marginTop: '24px',
+                  width: 'auto', 
+                  padding: '14px 36px', 
+                  fontSize: '16px', 
+                  backgroundColor: 'var(--color-gold)', 
+                  borderColor: 'var(--color-gold)',
+                  borderBottomColor: 'var(--color-gold-dark)',
+                  color: '#1F2937'
+                }}
+              >
+                Mulai Petualangan ➔
+              </button>
+            )}
           </div>
 
           <div className="curtain-side curtain-right"></div>
