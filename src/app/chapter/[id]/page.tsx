@@ -84,6 +84,7 @@ function ChapterDetailInner({ params }: PageProps) {
       }
       setChapter(found);
       await loadProgress();
+      window.dispatchEvent(new Event('stop-loading'));
     };
     loadInit();
 

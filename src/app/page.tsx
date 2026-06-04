@@ -110,6 +110,8 @@ export default function Home() {
       totalDone: doneChapters,
       overallProgress: progressPercent
     });
+
+    window.dispatchEvent(new Event('stop-loading'));
   }, []);
 
   useEffect(() => {

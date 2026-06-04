@@ -13,26 +13,34 @@ export default function WayangLoader() {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    let safetyTimer: NodeJS.Timeout;
+
     const handleStart = () => {
       setIsLoading(true);
       setIsMounted(true);
+      // Safety timeout in case a page forgets to call stop-loading
+      clearTimeout(safetyTimer);
+      safetyTimer = setTimeout(() => {
+        setIsLoading(false);
+      }, 3000); 
+    };
+
+    const handleStop = () => {
+      // Small delay before stopping to ensure React has painted the DOM
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 150);
     };
 
     window.addEventListener('start-loading', handleStart);
-    return () => window.removeEventListener('start-loading', handleStart);
+    window.addEventListener('stop-loading', handleStop);
+    
+    return () => {
+      window.removeEventListener('start-loading', handleStart);
+      window.removeEventListener('stop-loading', handleStop);
+      clearTimeout(safetyTimer);
+    };
   }, []);
-
-  useEffect(() => {
-    // Whenever pathname or search parameters change, it means the navigation is complete.
-    // We keep the loader for a minimum duration to allow the DOM/images to paint.
-    if (isLoading) {
-      const timer = setTimeout(() => {
-        setIsLoading(false);
-      }, 500); // Wait 500ms for Next.js to render the page fully
-      
-      return () => clearTimeout(timer);
-    }
-  }, [pathname, searchParams, isLoading]);
 
   useEffect(() => {
     if (!isLoading && isMounted) {

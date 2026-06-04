@@ -9,7 +9,10 @@ export default function ShopPage() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
 
   useEffect(() => {
-    const loadInit = async () => setProfile(await getStudentProfile());
+    const loadInit = async () => {
+      setProfile(await getStudentProfile());
+      window.dispatchEvent(new Event('stop-loading'));
+    };
     loadInit();
     const handleProfileChange = async () => setProfile(await getStudentProfile());
     window.addEventListener('profileUpdated', handleProfileChange);

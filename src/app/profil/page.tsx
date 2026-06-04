@@ -73,6 +73,7 @@ function ProfileInner() {
     setCh2Prog(await getChapterProgress(2));
     setCh3Prog(await getChapterProgress(3));
     setCh4Prog(await getChapterProgress(4));
+    window.dispatchEvent(new Event('stop-loading'));
   };
 
   useEffect(() => {

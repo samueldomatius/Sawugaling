@@ -19,6 +19,7 @@ export default function KamisPage() {
     const currentProfile = await getStudentProfile();
     setProfile(currentProfile);
     setIsThursday(isThursdayMode());
+    window.dispatchEvent(new Event('stop-loading'));
   }, []);
 
   useEffect(() => {
