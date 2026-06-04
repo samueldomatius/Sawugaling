@@ -20,6 +20,7 @@ export default function Home() {
   const [showIntro, setShowIntro] = useState(true);
   const [isCurtainOpen, setIsCurtainOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -119,6 +120,7 @@ export default function Home() {
         totalDone: doneChapters,
         overallProgress: progressPercent
       });
+      setIsDataLoaded(true);
     } catch (error) {
       console.error("Critical error during refreshState:", error);
     } finally {
@@ -387,6 +389,8 @@ export default function Home() {
     const list = [
       { name: "Adipati Gatot", xp: 320, avatar: "🦁", isSelf: false },
       { name: "Senopati Siti", xp: 180, avatar: "🐯", isSelf: false },
+      { name: "Cantrik Budi", xp: 80, avatar: "🐼", isSelf: false },
+      { name: "Cantrik Kartini", xp: 30, avatar: "🦊", isSelf: false },
       { name: studentName, xp: studentXp, avatar: "👦", isSelf: true }
     ];
 
@@ -444,6 +448,12 @@ export default function Home() {
   const activePin = getActivePinInfo();
 
   if (!isMounted) return null;
+  if (!isDataLoaded) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'url("/pattern.png"), linear-gradient(135deg, #FFF9E6 0%, #F5E8C7 100%)' }}>
+      <div style={{ fontSize: '64px', animation: 'pin-bounce 1s infinite ease-in-out' }}>👦</div>
+      <div style={{ marginTop: '24px', fontSize: '20px', fontWeight: '800', color: '#6B3010', letterSpacing: '0.05em' }}>Nyiapake Peta...</div>
+    </div>
+  );
 
   return (
     <>
@@ -987,33 +997,31 @@ export default function Home() {
               </div>
  
               {profile && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', marginTop: '6px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '8px' }}>
                   <button 
                     id="spin-wheel-btn"
                     className="btn-plakat-jati"
-                    style={{ padding: '8px 12px', fontSize: '11px', width: '100%' }}
+                    style={{ padding: '10px 12px', fontSize: '11px', width: '100%' }}
                     onClick={() => { playSaronChime(554); setShowSpinModal(true); }}
                   >
                     🎡 Roda Kabegjan (Muter)
                   </button>
 
-                  <div style={{ display: 'flex', gap: '6px', width: '100%' }}>
-                    <button 
-                      className="btn-plakat-lontar" 
-                      style={{ padding: '6px 4px', fontSize: '10px', width: '50%' }}
-                      onClick={handleReset}
-                    >
-                      Reset Progress
-                    </button>
+                  <button 
+                    className="btn-plakat-lontar" 
+                    style={{ padding: '8px 12px', fontSize: '11px', width: '100%' }}
+                    onClick={handleReset}
+                  >
+                    Reset Progress
+                  </button>
 
-                    <button 
-                      className="btn-plakat-lontar" 
-                      style={{ padding: '6px 4px', fontSize: '10px', width: '50%', background: 'linear-gradient(180deg, #FFFFFF 0%, #F0F9FF 100%)', borderColor: '#3B82F6', color: '#1D4ED8', boxShadow: 'inset 0 2px 0 rgba(255,255,255,0.4), 0 6px 0 #2563EB' }}
-                      onClick={() => { playSaronChime(523); setTutorialStep(0); }}
-                    >
-                      📖 Panduan Tutorial
-                    </button>
-                  </div>
+                  <button 
+                    className="btn-plakat-lontar" 
+                    style={{ padding: '8px 12px', fontSize: '11px', width: '100%', background: 'linear-gradient(180deg, #FFFFFF 0%, #F0F9FF 100%)', borderColor: '#3B82F6', color: '#1D4ED8', boxShadow: 'inset 0 2px 0 rgba(255,255,255,0.4), 0 6px 0 #2563EB' }}
+                    onClick={() => { playSaronChime(523); setTutorialStep(0); }}
+                  >
+                    📖 Panduan Tutorial
+                  </button>
                 </div>
               )}
             </div>
