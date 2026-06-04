@@ -98,6 +98,12 @@ export const getChapterProgress = async (chapterId: number) => {
   return await actions.getChapterProgress(code, chapterId);
 };
 
+export const getAllChapterProgresses = async () => {
+  const code = getUniqueCode();
+  if (!code) return [];
+  return await actions.getAllChapterProgress(code);
+};
+
 export const updateChapterProgress = async (chapterId: number, field: string, value: any) => {
   const code = getUniqueCode();
   if (!code) return;

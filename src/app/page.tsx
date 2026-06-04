@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { getChapterProgress, ChapterProgress, isThursdayMode, StudentProfile, getStudentProfile, clearStudentProfile, getChaptersList, getJavaneseRank, purchaseItem, claimSpinReward } from '@/lib/db';
+import { getChapterProgress, ChapterProgress, isThursdayMode, StudentProfile, getStudentProfile, clearStudentProfile, getChaptersList, getJavaneseRank, purchaseItem, claimSpinReward, getAllChapterProgresses } from '@/lib/db';
 import { playSaronChime, playWelcomeGamelan, startAmbientGamelan, playSpinTick, playSuccessChime } from '@/lib/audio';
 import dynamic from 'next/dynamic';
 import Navigation from '@/components/Navigation';
@@ -65,10 +65,10 @@ export default function Home() {
     setIsThursday(isThursdayMode());
 
     // 2. Fetch all remote database data concurrently (Profile + All Chapter Progress)
-    // This prevents the dreaded waterfall delay (e.g. 5x 500ms sequential = 2.5s -> now ~500ms total)
-    const [currentProfile, ...progressResults] = await Promise.all([
+    // Now using a SINGLE batch request for all progress to prevent N+1 network requests!
+    const [currentProfile, progressList] = await Promise.all([
       getStudentProfile(),
-      ...list.map(ch => getChapterProgress(ch.id))
+      getAllChapterProgresses()
     ]);
 
     setProfile(currentProfile);
@@ -81,14 +81,15 @@ export default function Home() {
     let completedActivities = 0;
     const totalActivities = list.length * 4; 
 
-    list.forEach((ch, index) => {
-      const prog = progressResults[index];
-      progresses[ch.id] = prog;
+    list.forEach((ch) => {
+      const prog = progressList.find((p: any) => p.chapterId === ch.id);
+      const safeProg = prog || { chapterId: ch.id, materiDone: false, dhongengDone: false, lkpdScore: null, gameDone: false };
+      progresses[ch.id] = safeProg;
       
-      if (prog.materiDone) completedActivities++;
-      if (prog.dhongengDone) completedActivities++;
-      if (prog.lkpdScore !== null) completedActivities++;
-      if (prog.gameDone) completedActivities++;
+      if (safeProg.materiDone) completedActivities++;
+      if (safeProg.dhongengDone) completedActivities++;
+      if (safeProg.lkpdScore !== null) completedActivities++;
+      if (safeProg.gameDone) completedActivities++;
     });
 
     const ch1 = progresses[1];

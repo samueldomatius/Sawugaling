@@ -88,13 +88,30 @@ export async function getChapterProgress(uniqueCode: string, chapterId: number) 
   };
 }
 
+export async function getAllChapterProgress(uniqueCode: string) {
+  const user = await prisma.user.findUnique({ 
+    where: { uniqueCode },
+    include: { chapterProgress: true }
+  });
+  if (!user) return [];
+
+  return user.chapterProgress.map(p => ({
+    chapterId: p.chapterId,
+    materiDone: p.materiDone,
+    dhongengDone: p.dhongengDone,
+    lkpdScore: p.lkpdScore,
+    gameDone: p.gameDone,
+  }));
+}
+
 export async function updateChapterProgress(uniqueCode: string, chapterId: number, field: string, value: any) {
   const user = await prisma.user.findUnique({ where: { uniqueCode } });
   if (!user) return;
   
-  await prisma.chapterProgress.update({
+  await prisma.chapterProgress.upsert({
     where: { userId_chapterId: { userId: user.id, chapterId } },
-    data: { [field]: value }
+    update: { [field]: value },
+    create: { userId: user.id, chapterId, [field]: value }
   });
 }
 
