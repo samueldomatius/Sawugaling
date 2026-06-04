@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { StudentProfile } from '@/lib/db';
@@ -11,7 +11,7 @@ interface NavigationProps {
   onRefresh?: () => void;
 }
 
-export default function Navigation({ profile, onOpenLogin }: NavigationProps) {
+function NavigationInner({ profile, onOpenLogin }: NavigationProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -216,5 +216,13 @@ export default function Navigation({ profile, onOpenLogin }: NavigationProps) {
         }
       `}</style>
     </>
+  );
+}
+
+export default function Navigation(props: NavigationProps) {
+  return (
+    <Suspense fallback={<div style={{ display: 'none' }} />}>
+      <NavigationInner {...props} />
+    </Suspense>
   );
 }
