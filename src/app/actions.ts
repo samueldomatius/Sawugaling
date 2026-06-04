@@ -179,7 +179,13 @@ export async function getLeaderboard() {
 }
 
 export async function getAllChapters() {
-  const custom = await prisma.customChapter.findMany();
+  let custom = [];
+  try {
+    custom = await prisma.customChapter.findMany();
+  } catch (error) {
+    console.error("Failed to fetch custom chapters, falling back to built-in:", error);
+    return chaptersData;
+  }
 
   // Build a map of builtinId -> custom override
   const overrides = new Map<number, any>();

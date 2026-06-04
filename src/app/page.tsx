@@ -44,6 +44,7 @@ export default function Home() {
   const [tutorialStep, setTutorialStep] = useState<number | null>(null);
 
   const refreshState = useCallback(async () => {
+    try {
     // 1. Load local chapters immediately so UI can construct the map skeleton
     const list = await getChaptersList();
     setChapters(list);
@@ -111,13 +112,16 @@ export default function Home() {
       }
     });
 
-    setStats({
-      totalUnlocked: unlockedCount,
-      totalDone: doneChapters,
-      overallProgress: progressPercent
-    });
-
-    window.dispatchEvent(new Event('stop-loading'));
+      setStats({
+        totalUnlocked: unlockedCount,
+        totalDone: doneChapters,
+        overallProgress: progressPercent
+      });
+    } catch (error) {
+      console.error("Critical error during refreshState:", error);
+    } finally {
+      window.dispatchEvent(new Event('stop-loading'));
+    }
   }, []);
 
   useEffect(() => {
