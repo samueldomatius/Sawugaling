@@ -312,6 +312,10 @@ p, li, span, input, textarea, select {
   width: 100%;
 }
 
+.chapter-main-area {
+  padding: 32px 24px;
+}
+
 .pohon-layout-grid {
   grid-template-columns: 1fr 340px;
 }

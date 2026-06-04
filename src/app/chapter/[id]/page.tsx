@@ -376,10 +376,10 @@ function ChapterDetailInner({ params }: PageProps) {
       <div className="main-wrapper">
         
         {/* CENTER CONTENT */}
-        <main className="content-area" style={{ maxWidth: '800px', padding: '32px 24px' }}>
+        <main className="content-area chapter-main-area" style={{ maxWidth: '800px' }}>
           
           {/* Top Progress bar and lives header (Duolingo Style) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
+          <div style={{ display: 'flex', width: '100%', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
             <span 
               onClick={() => { stopSpeech(); window.dispatchEvent(new Event('start-loading')); router.push('/'); }}
               style={{ fontSize: '20px', color: '#9CA3AF', cursor: 'pointer', fontWeight: '800', padding: '4px' }}
@@ -425,7 +425,7 @@ function ChapterDetailInner({ params }: PageProps) {
           ) : (
             <div>
               {/* Step Navigation Wizard Bar */}
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '8px' }}>
+              <div style={{ display: 'flex', width: '100%', gap: '8px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '8px' }}>
                 {stepsList.map(item => (
                   <button
                     key={item.step}
