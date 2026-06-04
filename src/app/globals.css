@@ -969,7 +969,7 @@ p, li, span, input, textarea, select {
   }
   
   .right-sidebar {
-    display: none; /* Hide sidebar elements because info is relocated inside profile page tabs */
+    display: none !important; /* Hide sidebar elements because info is relocated inside profile page tabs */
   }
 
   .content-area {

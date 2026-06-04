@@ -954,13 +954,6 @@ export default function Home() {
               </div>
               
               <div className="hud-stats-grid" style={{ marginTop: '12px' }}>
-                <div className="hud-stat-item stat-heart" title="Nyawa" onClick={() => playSaronChime(660)}>
-                  <div className="profile-name">{profile?.name || 'Dalang Cilik'}</div>
-                  <div className="profile-class">Kelas {profile?.className || '-'}</div>
-                </div>
-              </div>
-
-              <div className="hud-stats-grid">
                 <div className="stat-item">
                   <span className="stat-icon">❤️</span>
                   <span className="stat-value">{profile?.hearts || 0}</span>
