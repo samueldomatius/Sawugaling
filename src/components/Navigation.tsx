@@ -15,8 +15,9 @@ export default function Navigation({ profile, onOpenLogin }: NavigationProps) {
   const pathname = usePathname();
 
   const handleStopSpeech = () => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
+    if (typeof window !== 'undefined') {
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      window.dispatchEvent(new Event('start-loading'));
     }
   };
 

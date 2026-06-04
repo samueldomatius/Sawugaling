@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import WayangLoader from '@/components/WayangLoader';
+import { Suspense } from 'react';
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,6 +16,9 @@ export default function RootLayout({
   return (
     <html lang="id">
       <body>
+        <Suspense fallback={null}>
+          <WayangLoader />
+        </Suspense>
         {children}
       </body>
     </html>

@@ -339,6 +339,7 @@ function ChapterDetailInner({ params }: PageProps) {
       await addXP(30);
     }
     playGongResonance();
+    window.dispatchEvent(new Event('start-loading'));
     router.push('/');
   };
 
@@ -379,7 +380,7 @@ function ChapterDetailInner({ params }: PageProps) {
           {/* Top Progress bar and lives header (Duolingo Style) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
             <span 
-              onClick={() => { stopSpeech(); router.push('/'); }}
+              onClick={() => { stopSpeech(); window.dispatchEvent(new Event('start-loading')); router.push('/'); }}
               style={{ fontSize: '20px', color: '#9CA3AF', cursor: 'pointer', fontWeight: '800', padding: '4px' }}
               title="Kembali ke Beranda"
             >
@@ -415,7 +416,7 @@ function ChapterDetailInner({ params }: PageProps) {
                 <button className="btn-duo btn-duo-primary" onClick={handleRefillAndRetry}>
                   ❤️ Isi Nyawa Kebak (Gratis)
                 </button>
-                <button className="btn-duo btn-duo-secondary" onClick={() => router.push('/')}>
+                <button className="btn-duo btn-duo-secondary" onClick={() => { window.dispatchEvent(new Event('start-loading')); router.push('/'); }}>
                   Bali menyang Beranda
                 </button>
               </div>

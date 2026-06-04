@@ -841,7 +841,7 @@ export default function Home() {
                       >
                         <Link 
                           href={step1Unlocked ? `/chapter/${ch.id}?step=1` : '#'} 
-                          onClick={() => handleNodeClick(ch.id, 1, step1Unlocked)}
+                          onClick={() => { handleNodeClick(ch.id, 1, step1Unlocked); window.dispatchEvent(new Event('start-loading')); }}
                         >
                           <div className={`chapter-node ${step1Unlocked ? 'node-unlocked node-materi' : 'node-locked'}`} style={{ backgroundColor: step1Unlocked ? 'var(--color-blue)' : '#E5E7EB', boxShadow: step1Unlocked ? '0 8px 0 var(--color-blue-dark)' : '0 8px 0 #C3C6CC' }}>
                             {getStepIcon('materi')}
@@ -860,7 +860,7 @@ export default function Home() {
                       >
                         <Link 
                           href={step2Unlocked ? `/chapter/${ch.id}?step=2` : '#'} 
-                          onClick={() => handleNodeClick(ch.id, 2, step2Unlocked)}
+                          onClick={() => { handleNodeClick(ch.id, 2, step2Unlocked); window.dispatchEvent(new Event('start-loading')); }}
                         >
                           <div className={`chapter-node ${step2Unlocked ? 'node-unlocked node-dhongeng' : 'node-locked'}`} style={{ backgroundColor: step2Unlocked ? 'var(--color-orange)' : '#E5E7EB', boxShadow: step2Unlocked ? '0 8px 0 var(--color-orange-dark)' : '0 8px 0 #C3C6CC' }}>
                             {getStepIcon('dhongeng')}
@@ -879,7 +879,7 @@ export default function Home() {
                       >
                         <Link 
                           href={step3Unlocked ? `/chapter/${ch.id}?step=3` : '#'} 
-                          onClick={() => handleNodeClick(ch.id, 3, step3Unlocked)}
+                          onClick={() => { handleNodeClick(ch.id, 3, step3Unlocked); window.dispatchEvent(new Event('start-loading')); }}
                         >
                           <div className={`chapter-node ${step3Unlocked ? 'node-unlocked node-lkpd' : 'node-locked'}`} style={{ backgroundColor: step3Unlocked ? 'var(--color-green)' : '#E5E7EB', boxShadow: step3Unlocked ? '0 8px 0 var(--color-green-dark)' : '0 8px 0 #C3C6CC' }}>
                             {getStepIcon('lkpd')}
@@ -898,7 +898,7 @@ export default function Home() {
                       >
                         <Link 
                           href={step4Unlocked ? `/chapter/${ch.id}?step=4` : '#'} 
-                          onClick={() => handleNodeClick(ch.id, 4, step4Unlocked)}
+                          onClick={() => { handleNodeClick(ch.id, 4, step4Unlocked); window.dispatchEvent(new Event('start-loading')); }}
                         >
                           <div className={`chapter-node ${step4Unlocked ? 'node-unlocked node-game' : 'node-locked'}`} style={{ backgroundColor: step4Unlocked ? 'var(--color-purple)' : '#E5E7EB', boxShadow: step4Unlocked ? '0 8px 0 var(--color-purple-dark)' : '0 8px 0 #C3C6CC' }}>
                             {getStepIcon('game')}
