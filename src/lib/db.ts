@@ -245,3 +245,25 @@ export const refillHearts = async () => {
   if (code) await actions.refillHearts(code);
 };
 
+export const getMapInitData = async () => {
+  const code = getUniqueCode();
+  return await actions.getMapInitData(code);
+};
+
+export const getChapterInitData = async (chapterId: number) => {
+  const code = getUniqueCode();
+  return await actions.getChapterInitData(chapterId, code);
+};
+
+export const submitLkpdBatch = async (chapterId: number, chapterTitle: string, wrongCount: number, score: number) => {
+  const code = getUniqueCode();
+  if (!code) throw new Error("Not logged in");
+  return await actions.submitLkpdBatch(code, chapterId, chapterTitle, wrongCount, score);
+};
+
+export const completeStepBatch = async (chapterId: number, stepType: 'materiDone' | 'dhongengDone' | 'gameDone', xpReward: number, chapterTitle?: string) => {
+  const code = getUniqueCode();
+  if (!code) throw new Error("Not logged in");
+  return await actions.completeStepBatch(code, chapterId, stepType, xpReward, chapterTitle);
+};
+

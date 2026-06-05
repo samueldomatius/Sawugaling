@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { getChaptersList, getChapterProgress, updateChapterProgress, logScore, getStudentProfile, StudentProfile, deductHeart, addXP, addCrown, refillHearts } from '@/lib/db';
+import { getChaptersList, getChapterProgress, updateChapterProgress, logScore, getStudentProfile, StudentProfile, deductHeart, addXP, addCrown, refillHearts, getChapterInitData, submitLkpdBatch, completeStepBatch } from '@/lib/db';
 import { playSaronChime, playGongResonance, playErrorChime, speakJavaneseText, stopSpeech, playSuccessChime } from '@/lib/audio';
 import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
@@ -57,39 +57,58 @@ function ChapterDetailInner({ params }: PageProps) {
   const [lkpdCalculatedScore, setLkpdCalculatedScore] = useState<number | null>(null);
 
   const loadProgress = useCallback(async () => {
-    const currentProfile = await getStudentProfile();
+    const { profile: currentProfile, progress: currentProg } = await getChapterInitData(chapterId);
     setProfile(currentProfile);
     if (!currentProfile) {
       setShowRegister(true);
     }
 
-    const currentProg = await getChapterProgress(chapterId);
-    setProgress({
-      materiDone: currentProg.materiDone,
-      dhongengDone: currentProg.dhongengDone,
-      lkpdScore: currentProg.lkpdScore,
-      gameDone: currentProg.gameDone
-    });
+    if (currentProg) {
+      setProgress({
+        materiDone: currentProg.materiDone,
+        dhongengDone: currentProg.dhongengDone,
+        lkpdScore: currentProg.lkpdScore,
+        gameDone: currentProg.gameDone
+      });
 
-    if (currentProg.lkpdScore !== null) {
-      setLkpdCalculatedScore(currentProg.lkpdScore);
-      setLkpdSubmitted(true);
-    }
-    if (currentProg.dhongengDone) {
-      setStoryAnswered(true);
+      if (currentProg.lkpdScore !== null) {
+        setLkpdCalculatedScore(currentProg.lkpdScore);
+        setLkpdSubmitted(true);
+      }
+      if (currentProg.dhongengDone) {
+        setStoryAnswered(true);
+      }
     }
   }, [chapterId]);
 
   useEffect(() => {
     const loadInit = async () => {
-      const list = await getChaptersList();
-      const found = list.find(c => c.id === chapterId);
+      const { chapter: found, profile: currentProfile, progress: currentProg } = await getChapterInitData(chapterId);
       if (!found) {
         router.push('/');
         return;
       }
       setChapter(found);
-      await loadProgress();
+      setProfile(currentProfile);
+      if (!currentProfile) {
+        setShowRegister(true);
+      }
+      if (currentProg) {
+        setProgress({
+          materiDone: currentProg.materiDone,
+          dhongengDone: currentProg.dhongengDone,
+          lkpdScore: currentProg.lkpdScore,
+          gameDone: currentProg.gameDone
+        });
+
+        if (currentProg.lkpdScore !== null) {
+          setLkpdCalculatedScore(currentProg.lkpdScore);
+          setLkpdSubmitted(true);
+        }
+        if (currentProg.dhongengDone) {
+          setStoryAnswered(true);
+        }
+      }
       window.dispatchEvent(new Event('stop-loading'));
     };
     loadInit();
@@ -102,17 +121,26 @@ function ChapterDetailInner({ params }: PageProps) {
         setActiveStep(stepVal as 1 | 2 | 3 | 4);
       }
     }
-  }, [chapterId, loadProgress, router, searchParams]);
+  }, [chapterId, router, searchParams]);
 
-  // Listen to heart updates
+  // Listen to heart and progress updates
   useEffect(() => {
     const handleProfileChange = async () => {
       setProfile(await getStudentProfile());
     };
+    const handleProgressChange = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        setProfile(customEvent.detail.profile);
+        setProgress(customEvent.detail.progress);
+      }
+    };
     window.addEventListener('profileUpdated', handleProfileChange);
+    window.addEventListener('chapterProgressUpdated', handleProgressChange);
     return () => {
       stopSpeech();
       window.removeEventListener('profileUpdated', handleProfileChange);
+      window.removeEventListener('chapterProgressUpdated', handleProgressChange);
     };
   }, []);
 
@@ -168,10 +196,10 @@ function ChapterDetailInner({ params }: PageProps) {
       setActiveStep(2);
       return;
     }
-    await updateChapterProgress(chapterId, "materiDone", true);
-    await addXP(10);
+    const result = await completeStepBatch(chapterId, "materiDone", 10);
+    setProfile(result.profile);
+    setProgress(result.progress);
     playSaronChime();
-    await loadProgress();
     setActiveStep(2);
   };
 
@@ -201,11 +229,11 @@ function ChapterDetailInner({ params }: PageProps) {
 
   const handleFinishStoryMode = async () => {
     if (!progress.dhongengDone) {
-      await updateChapterProgress(chapterId, "dhongengDone", true);
-      await addXP(15);
+      const result = await completeStepBatch(chapterId, "dhongengDone", 15);
+      setProfile(result.profile);
+      setProgress(result.progress);
     }
     playGongResonance();
-    await loadProgress();
     setActiveStep(3);
   };
 
@@ -217,11 +245,11 @@ function ChapterDetailInner({ params }: PageProps) {
       setDongengPage(prev => prev + 1);
     } else {
       if (!progress.dhongengDone) {
-        await updateChapterProgress(chapterId, "dhongengDone", true);
-        await addXP(15);
+        const result = await completeStepBatch(chapterId, "dhongengDone", 15);
+        setProfile(result.profile);
+        setProgress(result.progress);
       }
       playGongResonance();
-      await loadProgress();
       setActiveStep(3);
     }
   };
@@ -327,24 +355,21 @@ function ChapterDetailInner({ params }: PageProps) {
       playErrorChime();
       setShakeHearts(true);
       setTimeout(() => setShakeHearts(false), 500);
-
-      // Deduct hearts
-      for (let i = 0; i < wrongCount; i++) {
-        await deductHeart();
-      }
+    } else {
+      playGongResonance();
     }
 
     const finalScore = Math.round((correctCount / questions.length) * 100);
     setLkpdCalculatedScore(finalScore);
     setLkpdSubmitted(true);
 
-    await logScore(chapterId, chapter.title, 'LKPD', finalScore, 100);
-    await updateChapterProgress(chapterId, "lkpdScore", finalScore);
-    await addXP(30);
-    await loadProgress();
-    
-    if (wrongCount === 0) {
-      playGongResonance();
+    try {
+      const result = await submitLkpdBatch(chapterId, chapter.title, wrongCount, finalScore);
+      setProfile(result.profile);
+      setProgress(result.progress);
+    } catch (err) {
+      console.error("Failed to submit LKPD batch:", err);
+      await loadProgress();
     }
     
     alert(`E-LKPD kasubmit! Bener: ${correctCount}, Salah: ${wrongCount}, Biji: ${finalScore}`);
@@ -352,10 +377,6 @@ function ChapterDetailInner({ params }: PageProps) {
   };
 
   const handleCompleteChapter = async () => {
-    if (!progress.gameDone) {
-      await addCrown();
-      await addXP(30);
-    }
     playGongResonance();
     window.dispatchEvent(new Event('start-loading'));
     router.push('/');

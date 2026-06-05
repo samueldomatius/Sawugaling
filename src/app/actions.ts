@@ -350,3 +350,153 @@ export async function refillHearts(uniqueCode: string) {
     return { error: `Database Error: ${e.message || String(e)}` };
   }
 }
+
+export async function getMapInitData(uniqueCode: string | null) {
+  const chapters = await getAllChapters();
+  let profile = null;
+  let progress: any[] = [];
+  if (uniqueCode) {
+    profile = await getProfile(uniqueCode);
+    progress = await getAllChapterProgress(uniqueCode);
+  }
+  return { chapters, profile, progress };
+}
+
+export async function getChapterInitData(chapterId: number, uniqueCode: string | null) {
+  const list = await getAllChapters();
+  const chapter = list.find(c => c.id === chapterId) || null;
+  let profile = null;
+  let progress = null;
+  if (uniqueCode) {
+    profile = await getProfile(uniqueCode);
+    progress = await getChapterProgress(uniqueCode, chapterId);
+  }
+  return { chapter, profile, progress };
+}
+
+export async function submitLkpdBatch(uniqueCode: string, chapterId: number, chapterTitle: string, wrongCount: number, score: number) {
+  return await prisma.$transaction(async (tx) => {
+    const user = await tx.user.findUnique({ where: { uniqueCode } });
+    if (!user) throw new Error("User not found");
+
+    const newHearts = Math.max(0, user.hearts - wrongCount);
+    const updatedUser = await tx.user.update({
+      where: { uniqueCode },
+      data: {
+        hearts: newHearts,
+        xp: { increment: 30 }
+      }
+    });
+
+    await tx.scoreLog.create({
+      data: {
+        userId: user.id,
+        chapterId,
+        chapterTitle,
+        activityType: 'LKPD',
+        score,
+        maxScore: 100
+      }
+    });
+
+    const updatedProg = await tx.chapterProgress.upsert({
+      where: { userId_chapterId: { userId: user.id, chapterId } },
+      update: { lkpdScore: score },
+      create: { userId: user.id, chapterId, lkpdScore: score }
+    });
+
+    return {
+      profile: {
+        uniqueCode: updatedUser.uniqueCode,
+        name: updatedUser.name,
+        className: updatedUser.className,
+        xp: updatedUser.xp,
+        hearts: updatedUser.hearts,
+        streak: updatedUser.streak,
+        crowns: updatedUser.crowns,
+        inventory: updatedUser.inventory,
+        lastSpinTime: updatedUser.lastSpinTime ? updatedUser.lastSpinTime.toISOString() : null,
+        registeredAt: updatedUser.registeredAt.toISOString(),
+      },
+      progress: {
+        chapterId: updatedProg.chapterId,
+        materiDone: updatedProg.materiDone,
+        dhongengDone: updatedProg.dhongengDone,
+        lkpdScore: updatedProg.lkpdScore,
+        gameDone: updatedProg.gameDone,
+      }
+    };
+  });
+}
+
+export async function completeStepBatch(uniqueCode: string, chapterId: number, stepType: 'materiDone' | 'dhongengDone' | 'gameDone', xpReward: number, chapterTitle?: string) {
+  return await prisma.$transaction(async (tx) => {
+    const user = await tx.user.findUnique({ where: { uniqueCode } });
+    if (!user) throw new Error("User not found");
+
+    const userUpdateData: any = {
+      xp: { increment: xpReward }
+    };
+    if (stepType === 'gameDone') {
+      userUpdateData.crowns = { increment: 1 };
+    }
+
+    const updatedUser = await tx.user.update({
+      where: { uniqueCode },
+      data: userUpdateData
+    });
+
+    const updatedProg = await tx.chapterProgress.upsert({
+      where: { userId_chapterId: { userId: user.id, chapterId } },
+      update: { [stepType]: true },
+      create: { userId: user.id, chapterId, [stepType]: true }
+    });
+
+    if (stepType === 'gameDone') {
+      let title = chapterTitle;
+      if (!title) {
+        const customCh = await tx.customChapter.findFirst({
+          where: {
+            OR: [
+              { id: chapterId - 1000 },
+              { builtinId: chapterId }
+            ]
+          }
+        });
+        title = customCh?.title || chaptersData.find(c => c.id === chapterId)?.title || `Bab ${chapterId}`;
+      }
+      await tx.scoreLog.create({
+        data: {
+          userId: user.id,
+          chapterId,
+          chapterTitle: title,
+          activityType: 'GAME',
+          score: 100,
+          maxScore: 100
+        }
+      });
+    }
+
+    return {
+      profile: {
+        uniqueCode: updatedUser.uniqueCode,
+        name: updatedUser.name,
+        className: updatedUser.className,
+        xp: updatedUser.xp,
+        hearts: updatedUser.hearts,
+        streak: updatedUser.streak,
+        crowns: updatedUser.crowns,
+        inventory: updatedUser.inventory,
+        lastSpinTime: updatedUser.lastSpinTime ? updatedUser.lastSpinTime.toISOString() : null,
+        registeredAt: updatedUser.registeredAt.toISOString(),
+      },
+      progress: {
+        chapterId: updatedProg.chapterId,
+        materiDone: updatedProg.materiDone,
+        dhongengDone: updatedProg.dhongengDone,
+        lkpdScore: updatedProg.lkpdScore,
+        gameDone: updatedProg.gameDone,
+      }
+    };
+  });
+}

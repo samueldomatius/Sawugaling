@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { getChapterProgress, ChapterProgress, isThursdayMode, StudentProfile, getStudentProfile, clearStudentProfile, getChaptersList, getJavaneseRank, purchaseItem, claimSpinReward, getAllChapterProgresses } from '@/lib/db';
+import { getChapterProgress, ChapterProgress, isThursdayMode, StudentProfile, getStudentProfile, clearStudentProfile, getChaptersList, getJavaneseRank, purchaseItem, claimSpinReward, getAllChapterProgresses, getMapInitData } from '@/lib/db';
 import { playSaronChime, playWelcomeGamelan, startAmbientGamelan, playSpinTick, playSuccessChime } from '@/lib/audio';
 import dynamic from 'next/dynamic';
 import Navigation from '@/components/Navigation';
@@ -59,17 +59,10 @@ export default function Home() {
 
   const refreshState = useCallback(async () => {
     try {
-    // 1. Load local chapters immediately so UI can construct the map skeleton
-    const list = await getChaptersList();
+    // 1. Fetch map initial data in a SINGLE bundled request
+    const { chapters: list, profile: currentProfile, progress: progressList } = await getMapInitData();
     setChapters(list);
     setIsThursday(isThursdayMode());
-
-    // 2. Fetch all remote database data concurrently (Profile + All Chapter Progress)
-    // Now using a SINGLE batch request for all progress to prevent N+1 network requests!
-    const [currentProfile, progressList] = await Promise.all([
-      getStudentProfile(),
-      getAllChapterProgresses()
-    ]);
 
     setProfile(currentProfile);
     if (!currentProfile) {

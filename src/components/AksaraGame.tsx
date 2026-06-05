@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { logScore, updateChapterProgress, deductHeart } from '@/lib/db';
+import { deductHeart, completeStepBatch } from '@/lib/db';
 import { playSaronChime, playGongResonance, playErrorChime } from '@/lib/audio';
 
 interface AksaraGameProps {
@@ -179,8 +179,12 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
     setSuccess(true);
     if (!scoreLogged) {
       playGongResonance();
-      await logScore(chapterId, chapterTitle, 'GAME', 100, 100);
-      await updateChapterProgress(chapterId, "gameDone", true);
+      try {
+        const result = await completeStepBatch(chapterId, 'gameDone', 30, chapterTitle);
+        window.dispatchEvent(new CustomEvent('chapterProgressUpdated', { detail: result }));
+      } catch (err) {
+        console.error("Failed to complete game batch:", err);
+      }
       setScoreLogged(true);
     }
   };
