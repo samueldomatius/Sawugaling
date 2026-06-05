@@ -30,6 +30,9 @@ export interface Chapter {
   dhongeng: {
     title: string;
     pages: DhongengPage[];
+    question?: string;
+    options?: string[];
+    correctAnswer?: string;
   };
   lkpd: {
     title: string;
@@ -84,7 +87,10 @@ export const chaptersData: Chapter[] = [
           text: "Ing Surabaya, Sawunggaling kudu ndherek sayembara panahan lan olah sodor kanggo mbuktekake kasektene. Amarga kasekten lan ketangkasane, Sawunggaling bisa ngalahake kabeh musuh lan diakoni minangka putra Adipati Jayengrana, banjur dadi Adipati Surabaya sabanjure kang adil lan micara.",
           illustrationPrompt: "Young Javanese prince Sawunggaling drawing a bow string in an archery tournament before a traditional Javanese palace (pendopo), crowd watching, red and gold batik style"
         }
-      ]
+      ],
+      question: "Sapa sejatine asmane ramane (bapake) Joko Berek adhedhasar naskah ing nduwur?",
+      options: ["Adipati Jayengrono", "Adipati Gatot", "Cantrik Budi", "Senopati Siti"],
+      correctAnswer: "Adipati Jayengrono"
     },
     lkpd: {
       title: "E-LKPD 1 — Pemahaman Crita Sawunggaling",
@@ -185,7 +191,10 @@ export const chaptersData: Chapter[] = [
           text: "Saben sore, Dewi Sangkrah ngajari Sawunggaling cara matur sing sopan marang wong tuwa. 'Le, menawa kowe guneman marang wong tuwa, kudu nggunakake basa Krama Alus. Iku wujud pakurmatanmu,' pangendikane Dewi Sangkrah kanthi alus lan kebak katresnan.",
           illustrationPrompt: "Javanese mother teaching her young son manners, sitting on a bamboo mat, warm expressions, classic Javanese illustration"
         }
-      ]
+      ],
+      question: "Basa apa sing kudu digunakake miturut Dewi Sangkrah nalika guneman marang wong tuwa?",
+      options: ["Krama Alus", "Ngoko Lugu", "Basa Jawa Kuna", "Basa Indonesia"],
+      correctAnswer: "Krama Alus"
     },
     lkpd: {
       title: "E-LKPD 2 — Unggah-Ungguh Basa",
@@ -278,7 +287,10 @@ export const chaptersData: Chapter[] = [
           text: "Ing krajan Surabaya, ana sedulur kuwalone Sawunggaling sing meri marang kesuksesane Sawunggaling. Dheweke nyoba nggawe pitnah lan racun ing ombene Sawunggaling nalika pahargyan Krajan. Nanging amarga kawicaksanan lan pitulungane Gusti, racun iku konangan lan si sedulur kuwalo malah kena piwalese dhewe. Paribasan 'Becik ketitik ala ketara' kabukten.",
           illustrationPrompt: "Javanese royal feast scene inside a wooden palace (pendopo), evil brother trying to poison a golden goblet, dramatic shadow, batik aesthetic"
         }
-      ]
+      ],
+      question: "Paribasan apa sing kabukten saka crita sedulur kuwalo sing meri marang Sawunggaling?",
+      options: ["Becik ketitik ala ketara", "Ana catur mungkur", "Jer basuki mawa beya", "Adigang adigung adiguna"],
+      correctAnswer: "Becik ketitik ala ketara"
     },
     lkpd: {
       title: "E-LKPD 3 — Paribasan lan Bebasan",
@@ -376,7 +388,10 @@ export const chaptersData: Chapter[] = [
           text: "Sawise menang sayembara, Jaka Kendhil diparingi gelar Raden Tumenggung Sawunggaling dening ramane, Adipati Jayengrana. Panulisan gelar lan jeneng iki kudu nggunakake Aksara Murda minangka pakurmatan marang kasekten lan keluhurane.",
           illustrationPrompt: "Sawunggaling receiving a royal crest from the Adipati, traditional Javanese palace inner court, gold ornaments, batik aesthetic"
         }
-      ]
+      ],
+      question: "Aksara apa sing kudu digunakake kanggo nulis gelar lan jeneng minangka pakurmatan?",
+      options: ["Aksara Murda", "Aksara Swara", "Aksara Rekan", "Aksara Carakan"],
+      correctAnswer: "Aksara Murda"
     },
     lkpd: {
       title: "E-LKPD 4 — Aksara Murda",
@@ -462,7 +477,10 @@ export const chaptersData: Chapter[] = [
           text: "Ing pendopo, Adipati Jayengrana kerep ngawontenake patemon warga. Kanggo nguri-uri swasana lan menehi pitutur kanthi alus, para abdi dalem asring ngaturake parikan Jawa sing ngandhut teges rukun lan gotong royong.",
           illustrationPrompt: "Javanese pendopo with royal court listening to storytellers, warm oil-lamp illumination, traditional instruments in background, watercolor texture"
         }
-      ]
+      ],
+      question: "Parikan Jawa sing diaturake para abdi dalem ngandhut teges apa?",
+      options: ["Rukun lan gotong royong", "Perang lan pasulayan", "Kasugihan lan pangkat", "Kasekten lan kanuragan"],
+      correctAnswer: "Rukun lan gotong royong"
     },
     lkpd: {
       title: "E-LKPD 5 — Parikan Jawa",
@@ -531,7 +549,10 @@ export const chaptersData: Chapter[] = [
           text: "Nalika Sawunggaling mimpin, Surabaya dadi kutha pelabuhan sing rame banget. Akeh pedagang saka manca nagara teka, saengga panulisan dokumen perdagangan nggunakake Aksara Swara kanggo negasake jeneng pedagang asing.",
           illustrationPrompt: "Ancient Javanese port city Surabaya, wooden merchant ships, busy harbor scene, old paper texture, vintage drawing"
         }
-      ]
+      ],
+      question: "Aksara apa sing digunakake kanggo nulis jeneng pedagang asing ing dokumen perdagangan?",
+      options: ["Aksara Swara", "Aksara Murda", "Aksara Rekan", "Aksara Sandhangan"],
+      correctAnswer: "Aksara Swara"
     },
     lkpd: {
       title: "E-LKPD 6 — Aksara Swara",

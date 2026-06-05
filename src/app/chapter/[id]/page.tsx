@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { getChaptersList, getChapterProgress, updateChapterProgress, logScore, getStudentProfile, StudentProfile, deductHeart, addXP, addCrown } from '@/lib/db';
+import { getChaptersList, getChapterProgress, updateChapterProgress, logScore, getStudentProfile, StudentProfile, deductHeart, addXP, addCrown, refillHearts } from '@/lib/db';
 import { playSaronChime, playGongResonance, playErrorChime, speakJavaneseText, stopSpeech, playSuccessChime } from '@/lib/audio';
 import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
@@ -116,6 +116,14 @@ function ChapterDetailInner({ params }: PageProps) {
     };
   }, []);
 
+  const getStoryQuestionConfig = useCallback((): { question: string; options: string[]; correctAnswer: string } => {
+    return {
+      question: chapter?.dhongeng?.question || `Sapa paraga utama ing dongeng "${chapter?.title || 'Sawunggaling'}" iki?`,
+      options: chapter?.dhongeng?.options || ["Sawunggaling", "Gatotkaca", "Joko Tarub", "Roro Jonggrang"],
+      correctAnswer: chapter?.dhongeng?.correctAnswer || "Sawunggaling"
+    };
+  }, [chapter]);
+
   if (!chapter) return null;
 
   // Determine Locking states
@@ -167,8 +175,11 @@ function ChapterDetailInner({ params }: PageProps) {
     setActiveStep(2);
   };
 
+
+
   const handleAnswerStoryQuestion = async () => {
-    if (selectedStoryOption === "Adipati Jayengrono") {
+    const qConfig = getStoryQuestionConfig();
+    if (selectedStoryOption === qConfig.correctAnswer) {
       setStoryAnswered(true);
       playSuccessChime();
       await addXP(10);
@@ -350,16 +361,10 @@ function ChapterDetailInner({ params }: PageProps) {
     router.push('/');
   };
 
-  const handleRefillAndRetry = () => {
-    if (typeof window !== 'undefined') {
-      const profile = getStudentProfile();
-      if (profile) {
-        const updated = { ...profile, hearts: 5 };
-        localStorage.setItem('sinau_jawa_student_profile', JSON.stringify(updated));
-        window.dispatchEvent(new Event('profileUpdated'));
-      }
-    }
-    loadProgress();
+  const handleRefillAndRetry = async () => {
+    await refillHearts();
+    window.dispatchEvent(new Event('profileUpdated'));
+    await loadProgress();
   };
 
   const overallProgressPercentage = 
@@ -589,20 +594,16 @@ function ChapterDetailInner({ params }: PageProps) {
                     {!storyAnswered ? (
                       <div>
                         <p style={{ fontSize: '14px', color: '#4B5563', marginBottom: '16px', fontWeight: '700' }}>
-                          Sapa sejatine asmane ramane (bapake) Joko Berek adhedhasar naskah ing nduwur?
+                          {getStoryQuestionConfig().question}
                         </p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                          {[
-                            "Adipati Jayengrono",
-                            "Adipati Gatot",
-                            "Cantrik Budi",
-                            "Senopati Siti"
-                          ].map(opt => {
+                          {getStoryQuestionConfig().options.map(opt => {
                             const isSelected = selectedStoryOption === opt;
                             return (
-                              <div
+                              <button
                                 key={opt}
                                 className="duo-card"
+                                type="button"
                                 onClick={() => setSelectedStoryOption(opt)}
                                 style={{
                                   padding: '12px 16px',
@@ -610,11 +611,17 @@ function ChapterDetailInner({ params }: PageProps) {
                                   margin: 0,
                                   background: isSelected ? '#FEF3C7' : undefined,
                                   borderColor: isSelected ? 'var(--color-orange)' : 'var(--border-light)',
-                                  borderBottomWidth: '4px'
+                                  borderBottomWidth: '4px',
+                                  width: '100%',
+                                  textAlign: 'left',
+                                  display: 'block',
+                                  color: 'inherit',
+                                  fontFamily: 'inherit',
+                                  fontSize: 'inherit'
                                 }}
                               >
                                 <span style={{ fontWeight: '600' }}>{opt}</span>
-                              </div>
+                              </button>
                             );
                           })}
                         </div>
@@ -629,7 +636,7 @@ function ChapterDetailInner({ params }: PageProps) {
                       </div>
                     ) : (
                       <div style={{ padding: '12px', background: '#F0FDF4', border: '2px solid #BBF7D0', borderRadius: '12px', color: 'var(--color-green-dark)', fontWeight: '800', textAlign: 'center' }}>
-                        🎉 Wangsulan bener! Bapakne Joko Berek yaiku Adipati Jayengrono. Cerita sabanjure wis kabukak! (+10 XP)
+                        🎉 Wangsulan bener! Cerita sabanjure wis kabukak! (+10 XP)
                       </div>
                     )}
                   </div>
@@ -706,9 +713,10 @@ function ChapterDetailInner({ params }: PageProps) {
                           {q.options.map(opt => {
                             const isSelected = answers[q.id] === opt;
                             return (
-                              <div 
+                              <button 
                                 key={opt} 
                                 className="duo-card"
+                                type="button"
                                 onClick={() => handleMultipleChoiceSelect(q.id, opt)}
                                 style={{ 
                                   padding: '14px 18px', 
@@ -719,7 +727,12 @@ function ChapterDetailInner({ params }: PageProps) {
                                   borderBottomWidth: '4px',
                                   display: 'flex',
                                   alignItems: 'center',
-                                  gap: '12px'
+                                  gap: '12px',
+                                  width: '100%',
+                                  textAlign: 'left',
+                                  color: 'inherit',
+                                  fontFamily: 'inherit',
+                                  fontSize: 'inherit'
                                 }}
                               >
                                 <input 
@@ -731,7 +744,7 @@ function ChapterDetailInner({ params }: PageProps) {
                                   style={{ transform: 'scale(1.25)', accentColor: 'var(--color-green)' }}
                                 />
                                 <span style={{ fontWeight: '600', color: isSelected ? 'var(--color-green-dark)' : '#374151' }}>{opt}</span>
-                              </div>
+                              </button>
                             );
                           })}
                         </div>
@@ -840,6 +853,7 @@ function ChapterDetailInner({ params }: PageProps) {
                   <AksaraGame 
                     chapterId={chapterId} 
                     chapterTitle={chapter.title} 
+                    gameType={chapter.game.type} 
                     config={chapter.game.config} 
                     onComplete={handleCompleteChapter} 
                   />

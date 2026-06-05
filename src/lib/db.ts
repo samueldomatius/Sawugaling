@@ -239,3 +239,9 @@ export const updateCustomChapter = actions.updateCustomChapter;
 export const deleteCustomChapter = actions.deleteCustomChapter;
 export const upsertBuiltinOverride = actions.upsertBuiltinOverride;
 export const getLeaderboard = actions.getLeaderboard;
+
+export const refillHearts = async () => {
+  const code = getUniqueCode();
+  if (code) await actions.refillHearts(code);
+};
+

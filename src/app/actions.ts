@@ -337,3 +337,16 @@ export async function getVisitorLogs() {
     timestamp: l.timestamp.toISOString()
   }));
 }
+
+export async function refillHearts(uniqueCode: string) {
+  try {
+    await prisma.user.update({
+      where: { uniqueCode },
+      data: { hearts: 5 }
+    });
+    return { success: true };
+  } catch (e: any) {
+    console.error("Prisma refillHearts Error:", e);
+    return { error: `Database Error: ${e.message || String(e)}` };
+  }
+}

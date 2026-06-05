@@ -211,15 +211,83 @@ function ChapterForm({
     [{ text: '', prompt: '' }]
   );
   const [lkpdTitle, setLkpdTitle] = useState(initial?.lkpd?.title || '');
-  const [mcQuestions, setMcQuestions] = useState<LkpdMcQuestion[]>([{ question: '', optA: '', optB: '', optC: '', correct: '' }]);
-  const [textQuestions, setTextQuestions] = useState<LkpdTextQuestion[]>([{ question: '', correct: '' }]);
+  const [mcQuestions, setMcQuestions] = useState<LkpdMcQuestion[]>(() => {
+    if (initial?.lkpd?.questions) {
+      const mc = initial.lkpd.questions.filter(q => q.type === 'multiple-choice');
+      if (mc.length > 0) {
+        return mc.map(q => ({
+          question: q.question,
+          optA: q.options?.[0] || '',
+          optB: q.options?.[1] || '',
+          optC: q.options?.[2] || '',
+          correct: q.correctAnswer as string,
+        }));
+      }
+    }
+    return [{ question: '', optA: '', optB: '', optC: '', correct: '' }];
+  });
+
+  const [textQuestions, setTextQuestions] = useState<LkpdTextQuestion[]>(() => {
+    if (initial?.lkpd?.questions) {
+      const txt = initial.lkpd.questions.filter(q => q.type === 'text');
+      if (txt.length > 0) {
+        return txt.map(q => ({
+          question: q.question,
+          correct: q.correctAnswer as string,
+        }));
+      }
+    }
+    return [{ question: '', correct: '' }];
+  });
 
   // Game selection - allow multiple
   const [selectedGames, setSelectedGames] = useState<GameType[]>(
     initial?.game ? [initial.game.type] : ['aksara-drag']
   );
-  const [aksaraPairs, setAksaraPairs] = useState<AksaraPair[]>([{ aksara: '', latin: '' }]);
-  const [wordPairs, setWordPairs] = useState<WordPair[]>([{ word: '', hint: '' }]);
+  const [aksaraPairs, setAksaraPairs] = useState<AksaraPair[]>(() => {
+    const type = initial?.game?.type;
+    if ((type === 'aksara-drag' || type === 'memory-match') && initial?.game?.config?.pairs) {
+      return initial.game.config.pairs;
+    }
+    if (type === 'speed-run' && initial?.game?.config?.pool) {
+      return initial.game.config.pool;
+    }
+    if (type === 'bubble-pop' && initial?.game?.config?.sequence) {
+      return initial.game.config.sequence;
+    }
+    return [{ aksara: '', latin: '' }];
+  });
+  const [wordPairs, setWordPairs] = useState<WordPair[]>(() => {
+    if (initial?.game?.type === 'word-guess') {
+      if (initial.game.config?.words) {
+        return initial.game.config.words;
+      }
+      if (initial.game.config?.correctWord) {
+        return [{ word: initial.game.config.correctWord, hint: initial.game.config.clue || '' }];
+      }
+    }
+    return [{ word: '', hint: '' }];
+  });
+
+  // Gated story questions states
+  const [gatedQuestion, setGatedQuestion] = useState(initial?.dhongeng?.question || '');
+  const [gatedOptA, setGatedOptA] = useState(initial?.dhongeng?.options?.[0] || '');
+  const [gatedOptB, setGatedOptB] = useState(initial?.dhongeng?.options?.[1] || '');
+  const [gatedOptC, setGatedOptC] = useState(initial?.dhongeng?.options?.[2] || '');
+  const [gatedOptD, setGatedOptD] = useState(initial?.dhongeng?.options?.[3] || '');
+  const [gatedCorrectAnswer, setGatedCorrectAnswer] = useState(initial?.dhongeng?.correctAnswer || '');
+
+  // Picture Quiz config states
+  const [pqImagePrompt, setPqImagePrompt] = useState(initial?.game?.config?.imagePrompt || 'Traditional Javanese wayang, golden warm tones');
+  const [pqImageLabel, setPqImageLabel] = useState(initial?.game?.config?.imageLabel || 'Wayang Gunungan');
+  const [pqOptA, setPqOptA] = useState(initial?.game?.config?.options?.[0] || '');
+  const [pqOptB, setPqOptB] = useState(initial?.game?.config?.options?.[1] || '');
+  const [pqOptC, setPqOptC] = useState(initial?.game?.config?.options?.[2] || '');
+  const [pqOptD, setPqOptD] = useState(initial?.game?.config?.options?.[3] || '');
+  const [pqCorrect, setPqCorrect] = useState(initial?.game?.config?.correctAnswer || '');
+
+  // Bubble Pop config states
+  const [bpDistractors, setBpDistractors] = useState(initial?.game?.config?.distractors?.join(', ') || 'ꦲ, ꦤ, ꦕ, ꦫ, ꦱ');
 
   const [saving, setSaving] = useState(false);
   const [activeSection, setActiveSection] = useState<'info' | 'materi' | 'dongeng' | 'lkpd' | 'game'>('info');
@@ -281,16 +349,67 @@ function ChapterForm({
           gameConfig.config.pairs = [{ aksara: 'ꦱ', latin: 'sa' }];
         }
       } else if (primaryGame === 'word-guess') {
-        gameConfig.config.words = wordPairs.filter(w => w.word);
-        if (gameConfig.config.words.length === 0) {
-          gameConfig.config.words = [{ word: 'JAWA', hint: 'Salah sijine suku ing Indonesia' }];
+        const filteredWords = wordPairs.filter(w => w.word);
+        const finalWords = filteredWords.length > 0 ? filteredWords : [{ word: 'JAWA', hint: 'Salah sijine suku ing Indonesia' }];
+        gameConfig.config.words = finalWords;
+        gameConfig.config.correctWord = finalWords[0].word.toUpperCase();
+        gameConfig.config.clue = finalWords[0].hint;
+        // Generate letters pool
+        const correctLetters = Array.from(new Set(finalWords[0].word.toUpperCase().split('')));
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const set = new Set(correctLetters);
+        while (set.size < 10) {
+          set.add(alphabet[Math.floor(Math.random() * alphabet.length)]);
         }
+        gameConfig.config.letters = Array.from(set).sort(() => Math.random() - 0.5);
+      } else if (primaryGame === 'memory-match') {
+        gameConfig.config.pairs = aksaraPairs.filter(p => p.aksara && p.latin);
+        if (gameConfig.config.pairs.length === 0) {
+          gameConfig.config.pairs = [
+            { aksara: "ꦱ", latin: "sa" },
+            { aksara: "ꦮ", latin: "wa" },
+            { aksara: "ꦒ", latin: "ga" }
+          ];
+        }
+      } else if (primaryGame === 'bubble-pop') {
+        const seq = aksaraPairs.filter(p => p.aksara && p.latin);
+        const target = seq.map(s => s.latin).join('').toUpperCase();
+        gameConfig.config = {
+          targetWord: target || "JAYA",
+          sequence: seq.length > 0 ? seq : [
+            { aksara: "ꦗ", latin: "JA" },
+            { aksara: "ꦪ", latin: "YA" }
+          ],
+          distractors: bpDistractors.split(',').map((s: string) => s.trim()).filter(Boolean)
+        };
+      } else if (primaryGame === 'speed-run') {
+        gameConfig.config.pool = aksaraPairs.filter(p => p.aksara && p.latin);
+        if (gameConfig.config.pool.length === 0) {
+          gameConfig.config.pool = [
+            { aksara: "ꦄ", latin: "A" },
+            { aksara: "ꦆ", latin: "I" },
+            { aksara: "ꦈ", latin: "U" }
+          ];
+        }
+      } else if (primaryGame === 'picture-quiz') {
+        gameConfig.config = {
+          imagePrompt: pqImagePrompt,
+          imageLabel: pqImageLabel,
+          options: [pqOptA, pqOptB, pqOptC, pqOptD].filter(Boolean),
+          correctAnswer: pqCorrect
+        };
       }
 
       const chapterData = {
         title, description: desc, icon,
         materi: { title: materiTitle, sections: materiSections.filter(s => s.title || s.content) },
-        dhongeng: { title: dongengTitle, pages: pages.length > 0 ? pages : [{ pageIndex: 1, text: 'Critane isih kosong', illustrationPrompt: 'Blank' }] },
+        dhongeng: {
+          title: dongengTitle,
+          pages: pages.length > 0 ? pages : [{ pageIndex: 1, text: 'Critane isih kosong', illustrationPrompt: 'Blank' }],
+          question: gatedQuestion || undefined,
+          options: (gatedOptA || gatedOptB || gatedOptC || gatedOptD) ? [gatedOptA, gatedOptB, gatedOptC, gatedOptD].filter(Boolean) : undefined,
+          correctAnswer: gatedCorrectAnswer || undefined
+        },
         lkpd: { title: lkpdTitle, questions: questions.length > 0 ? questions : [{ id: 'q1', type: 'text', question: 'Kesan sampeyan?', correctAnswer: 'apik' }] },
         game: gameConfig,
       };
@@ -395,6 +514,40 @@ function ChapterForm({
             ))}
             <button type="button" onClick={() => setDongengPages(prev => [...prev, { text: '', prompt: '' }])}
               style={addBtnStyle}>➕ Tambah Halaman Cerita</button>
+
+            {/* Gated Challenge / Tantangan Tengah Cerita */}
+            <div style={{ marginTop: '32px', padding: '20px', background: '#FFFDF9', borderRadius: '16px', border: '2px solid #FCD34D' }}>
+              <h4 style={{ fontWeight: '800', color: '#B45309', marginBottom: '8px', fontSize: '15px' }}>⚔️ Tantangan Tengah Cerita (Gated Question)</h4>
+              <p style={{ fontSize: '13px', color: '#6B7280', marginBottom: '16px', lineHeight: '1.4' }}>
+                Pertanyaan pilihan ganda yang muncul di tengah-tengah dongeng untuk menguji pemahaman membaca siswa sebelum melanjutkan cerita.
+              </p>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={labelStyle}>Pertanyaan Cerita</label>
+                <input style={inputStyle} value={gatedQuestion} onChange={e => setGatedQuestion(e.target.value)} placeholder="Cth: Sapa sejatine asmane ramane Joko Berek?" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '11px' }}>Pilihan A</label>
+                  <input style={inputStyle} value={gatedOptA} onChange={e => setGatedOptA(e.target.value)} placeholder="Opsi A" />
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '11px' }}>Pilihan B</label>
+                  <input style={inputStyle} value={gatedOptB} onChange={e => setGatedOptB(e.target.value)} placeholder="Opsi B" />
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '11px' }}>Pilihan C</label>
+                  <input style={inputStyle} value={gatedOptC} onChange={e => setGatedOptC(e.target.value)} placeholder="Opsi C" />
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '11px' }}>Pilihan D</label>
+                  <input style={inputStyle} value={gatedOptD} onChange={e => setGatedOptD(e.target.value)} placeholder="Opsi D" />
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Jawaban Benar</label>
+                <input style={{ ...inputStyle, borderColor: '#D97706' }} value={gatedCorrectAnswer} onChange={e => setGatedCorrectAnswer(e.target.value)} placeholder="✅ Jawaban benar (harus sama persis dengan opsi di atas)" />
+              </div>
+            </div>
           </div>
         )}
 
@@ -440,7 +593,7 @@ function ChapterForm({
                     {textQuestions.length > 1 && (
                       <button type="button" onClick={() => setTextQuestions(prev => prev.filter((_, j) => j !== i))}
                         style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '18px' }}>✕</button>
-                    )}
+                  )}
                   </div>
                   <input style={{ ...inputStyle, marginBottom: '8px' }} value={q.question} onChange={e => setTextQuestions(prev => prev.map((s, j) => j === i ? { ...s, question: e.target.value } : s))} placeholder="Pertanyaan esai..." />
                   <input style={{ ...inputStyle, borderColor: '#F59E0B' }} value={q.correct} onChange={e => setTextQuestions(prev => prev.map((s, j) => j === i ? { ...s, correct: e.target.value } : s))} placeholder="✅ Kunci jawaban yang diterima" />
@@ -457,7 +610,7 @@ function ChapterForm({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div>
               <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1F2937', marginBottom: '4px' }}>🎮 Pilih Jenis Gamifikasi</h3>
-              <p style={{ color: '#6B7280', fontSize: '14px', marginBottom: '16px' }}>Bisa memilih lebih dari satu jenis game untuk bab ini.</p>
+              <p style={{ color: '#6B7280', fontSize: '14px', marginBottom: '16px' }}>Pilih jenis game utama untuk bab ini.</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
                 {GAME_TYPES.map(g => (
                   <div key={g.type}
@@ -487,10 +640,20 @@ function ChapterForm({
               )}
             </div>
 
-            {/* Aksara Drag Config */}
-            {selectedGames.includes('aksara-drag') && (
-              <div style={{ background: '#FFFBEF', borderRadius: '12px', padding: '16px', border: '1.5px solid #FDE68A' }}>
-                <h4 style={{ fontWeight: '800', color: '#92400E', marginBottom: '12px' }}>✍️ Konfigurasi Drag Aksara</h4>
+            {/* Aksara Pairs Configuration (Aksara Drag, Memory Match, Speed Run, Bubble Pop) */}
+            {(selectedGames[0] === 'aksara-drag' || selectedGames[0] === 'memory-match' || selectedGames[0] === 'speed-run' || selectedGames[0] === 'bubble-pop') && (
+              <div style={{ background: '#FFFBEF', borderRadius: '12px', padding: '16px', border: '1.5px solid #FDE68A', marginBottom: '16px' }}>
+                <h4 style={{ fontWeight: '800', color: '#92400E', marginBottom: '8px' }}>
+                  ✍️ Konfigurasi Pasangan Aksara
+                </h4>
+                <p style={{ fontSize: '12px', color: '#6B7280', marginBottom: '16px', lineHeight: '1.4' }}>
+                  {selectedGames[0] === 'bubble-pop' 
+                    ? "Masukkan pasangan aksara secara berurutan untuk membentuk kata target (misal: pasangan 1: ꦗ-JA, pasangan 2: ꦪ-YA akan membentuk kata target JAYA)."
+                    : selectedGames[0] === 'speed-run'
+                    ? "Masukkan seluruh daftar pasangan aksara yang akan muncul sebagai soal acak adu cepat."
+                    : "Masukkan pasangan aksara Jawa dan transliterasi latinnya yang digunakan dalam permainan."
+                  }
+                </p>
                 {aksaraPairs.map((pair, i) => (
                   <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
                     <input style={inputStyle} value={pair.aksara} onChange={e => setAksaraPairs(prev => prev.map((p, j) => j === i ? { ...p, aksara: e.target.value } : p))} placeholder="Aksara Jawa (cth: ꦱ)" />
@@ -499,12 +662,20 @@ function ChapterForm({
                   </div>
                 ))}
                 <button type="button" onClick={() => setAksaraPairs(prev => [...prev, { aksara: '', latin: '' }])} style={addBtnStyle}>➕ Tambah Pasangan Aksara</button>
+
+                {/* Additional field for Bubble Pop distractors */}
+                {selectedGames[0] === 'bubble-pop' && (
+                  <div style={{ marginTop: '16px', borderTop: '1px solid #FDE68A', paddingTop: '16px' }}>
+                    <label style={labelStyle}>Karakter Pengganggu (Distractors) - Pisahkan dengan koma</label>
+                    <input style={inputStyle} value={bpDistractors} onChange={e => setBpDistractors(e.target.value)} placeholder="Cth: ꦲ, ꦤ, ꦕ, ꦫ, ꦱ" />
+                  </div>
+                )}
               </div>
             )}
 
             {/* Word Guess Config */}
-            {selectedGames.includes('word-guess') && (
-              <div style={{ background: '#EFF6FF', borderRadius: '12px', padding: '16px', border: '1.5px solid #BFDBFE' }}>
+            {selectedGames[0] === 'word-guess' && (
+              <div style={{ background: '#EFF6FF', borderRadius: '12px', padding: '16px', border: '1.5px solid #BFDBFE', marginBottom: '16px' }}>
                 <h4 style={{ fontWeight: '800', color: '#1E40AF', marginBottom: '12px' }}>🔤 Konfigurasi Tebak Kata</h4>
                 {wordPairs.map((pair, i) => (
                   <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
@@ -514,6 +685,43 @@ function ChapterForm({
                   </div>
                 ))}
                 <button type="button" onClick={() => setWordPairs(prev => [...prev, { word: '', hint: '' }])} style={{ ...addBtnStyle, background: '#EFF6FF', color: '#1E40AF', border: '1.5px dashed #3B82F6' }}>➕ Tambah Kata</button>
+              </div>
+            )}
+
+            {/* Picture Quiz Config */}
+            {selectedGames[0] === 'picture-quiz' && (
+              <div style={{ background: '#FFF1F2', borderRadius: '12px', padding: '16px', border: '1.5px solid #FECDD3', marginBottom: '16px' }}>
+                <h4 style={{ fontWeight: '800', color: '#9F1239', marginBottom: '12px' }}>🖼️ Konfigurasi Kuis Gambar</h4>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={labelStyle}>Label Gambar (Muncul di pojok gambar)</label>
+                  <input style={inputStyle} value={pqImageLabel} onChange={e => setPqImageLabel(e.target.value)} placeholder="Cth: Wayang Gunungan" />
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={labelStyle}>Deskripsi/Prompt Ilustrasi</label>
+                  <input style={inputStyle} value={pqImagePrompt} onChange={e => setPqImagePrompt(e.target.value)} placeholder="Cth: Wayang gunungan golden batik standing proud..." />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize: '11px' }}>Pilihan A</label>
+                    <input style={inputStyle} value={pqOptA} onChange={e => setPqOptA(e.target.value)} placeholder="Opsi A" />
+                  </div>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize: '11px' }}>Pilihan B</label>
+                    <input style={inputStyle} value={pqOptB} onChange={e => setPqOptB(e.target.value)} placeholder="Opsi B" />
+                  </div>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize: '11px' }}>Pilihan C</label>
+                    <input style={inputStyle} value={pqOptC} onChange={e => setPqOptC(e.target.value)} placeholder="Opsi C" />
+                  </div>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize: '11px' }}>Pilihan D</label>
+                    <input style={inputStyle} value={pqOptD} onChange={e => setPqOptD(e.target.value)} placeholder="Opsi D" />
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Jawaban Benar</label>
+                  <input style={{ ...inputStyle, borderColor: '#BE123C' }} value={pqCorrect} onChange={e => setPqCorrect(e.target.value)} placeholder="✅ Jawaban benar (harus sama persis dengan opsi di atas)" />
+                </div>
               </div>
             )}
           </div>

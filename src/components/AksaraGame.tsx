@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { logScore, updateChapterProgress, deductHeart } from '@/lib/db';
 import { playSaronChime, playGongResonance, playErrorChime } from '@/lib/audio';
 
@@ -49,6 +49,9 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
   // 2. WORD GUESS GAME MODE STATES
   const [guessedWord, setGuessedWord] = useState<string[]>([]);
   const [currentGuessIndex, setCurrentGuessIndex] = useState(0);
+  const [wgCorrectWord, setWgCorrectWord] = useState('');
+  const [wgClue, setWgClue] = useState('');
+  const [wgLetters, setWgLetters] = useState<string[]>([]);
 
   // 3. PICTURE QUIZ GAME MODE STATES
   const [selectedPictureOption, setSelectedPictureOption] = useState<string | null>(null);
@@ -67,7 +70,7 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
   const [speedStreak, setSpeedStreak] = useState(0);
   const [speedTimer, setSpeedTimer] = useState(100);
 
-  const loadNextSpeedQuestion = (poolArray?: any[]) => {
+  const loadNextSpeedQuestion = useCallback((poolArray?: any[]) => {
     const pool = poolArray || config?.pool;
     if (!pool || pool.length === 0) return;
     const correct = pool[Math.floor(Math.random() * pool.length)];
@@ -77,7 +80,7 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
     setSpeedQuestion(correct);
     setSpeedOptions(options.sort(() => Math.random() - 0.5));
     setSpeedTimer(100);
-  };
+  }, [config?.pool]);
 
   // Initializing game states
   useEffect(() => {
@@ -88,8 +91,22 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
       const shuffled = [...config.pairs].sort(() => Math.random() - 0.5);
       setAvailableItems(shuffled);
       setDragMatches({});
-    } else if (activeType === 'word-guess' && config?.correctWord) {
-      setGuessedWord(Array(config.correctWord.length).fill(''));
+    } else if (activeType === 'word-guess') {
+      const rawWord = (config?.correctWord || config?.words?.[0]?.word || 'JAWA').toUpperCase();
+      const rawClue = config?.clue || config?.words?.[0]?.hint || 'Aksara Jawa';
+      const rawLetters = config?.letters || (() => {
+        const correctLetters = Array.from(new Set(rawWord.split('')));
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const set = new Set(correctLetters);
+        while (set.size < 10) {
+          set.add(alphabet[Math.floor(Math.random() * alphabet.length)]);
+        }
+        return Array.from(set).sort(() => Math.random() - 0.5);
+      })();
+      setWgCorrectWord(rawWord);
+      setWgClue(rawClue);
+      setWgLetters(rawLetters);
+      setGuessedWord(Array(rawWord.length).fill(''));
       setCurrentGuessIndex(0);
     } else if (activeType === 'picture-quiz') {
       setSelectedPictureOption(null);
@@ -134,7 +151,7 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
       setSpeedStreak(0);
       loadNextSpeedQuestion(config.pool);
     }
-  }, [config, chapterId, activeType]);
+  }, [config, chapterId, activeType, loadNextSpeedQuestion]);
 
   // Speed run timer effect
   useEffect(() => {
@@ -155,7 +172,7 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
     }, 100);
 
     return () => clearInterval(interval);
-  }, [activeType, success, speedQuestion]);
+  }, [activeType, success, speedQuestion, loadNextSpeedQuestion]);
 
   // Log score helper
   const handleSuccessTrigger = async () => {
@@ -183,7 +200,8 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
       setDragMatches(updatedMatches);
       setAvailableItems(prev => prev.filter(item => item.latin !== draggedItem.latin));
 
-      if (Object.keys(updatedMatches).length === config.pairs.length) {
+      const totalPairsLength = config?.pairs?.length || 0;
+      if (Object.keys(updatedMatches).length === totalPairsLength) {
         handleSuccessTrigger();
       }
     } else {
@@ -199,7 +217,7 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
   // ----------------------------------------------------
   const handleLetterClick = (letter: string) => {
     if (success) return;
-    const correctStr = config.correctWord;
+    const correctStr = wgCorrectWord;
     
     if (correctStr[currentGuessIndex] === letter) {
       playSaronChime();
@@ -420,7 +438,7 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
       ) : (
         <div style={{ marginTop: '16px' }}>
           
-          {/* ==================================================== */}
+           {/* ==================================================== */}
           {/* MODE 1: DRAG & DROP COMPONENT */}
           {/* ==================================================== */}
           {activeType === 'aksara-drag' && config?.pairs && (
@@ -433,17 +451,19 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
                       key={pair.latin}
                       onDragOver={e => e.preventDefault()}
                       onDrop={() => handleDrop(pair.latin)}
+                      onClick={() => handleDrop(pair.latin)}
                       style={{
                         width: '110px',
                         height: '110px',
                         backgroundColor: matched ? '#F0FDF4' : '#FFFFFF',
-                        border: matched ? '2px solid var(--color-green)' : '2px dashed #CBD5E1',
+                        border: matched ? '2px solid var(--color-green)' : draggedItem ? '2.5px dashed var(--color-purple)' : '2px dashed #CBD5E1',
                         borderRadius: '16px',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        boxShadow: matched ? '0 4px 0 var(--color-green-dark)' : 'none'
+                        boxShadow: matched ? '0 4px 0 var(--color-green-dark)' : 'none',
+                        cursor: matched ? 'default' : 'pointer'
                       }}
                     >
                       {matched ? (
@@ -468,30 +488,36 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
 
               {availableItems.length > 0 && (
                 <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap', padding: '20px', background: '#F8FAFC', borderRadius: '16px', border: '2px solid #E2E8F0' }}>
-                  {availableItems.map((pair: any) => (
-                    <div
-                      key={pair.latin}
-                      draggable
-                      onDragStart={() => handleDragStart(pair)}
-                      className="aksara-card-draggable"
-                      style={{
-                        width: '80px',
-                        height: '80px',
-                        background: '#FFFFFF',
-                        border: '2px solid #E2E8F0',
-                        borderBottom: '5px solid #C084FC',
-                        borderRadius: '16px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'grab'
-                      }}
-                    >
-                      <span className="aksara-script" style={{ fontSize: '28px', color: 'var(--color-purple-dark)', fontWeight: 'bold' }}>
-                        {pair.aksara}
-                      </span>
-                    </div>
-                  ))}
+                  {availableItems.map((pair: any) => {
+                    const isSelected = draggedItem?.latin === pair.latin;
+                    return (
+                      <div
+                        key={pair.latin}
+                        draggable
+                        onDragStart={() => handleDragStart(pair)}
+                        onClick={() => handleDragStart(pair)}
+                        className="aksara-card-draggable"
+                        style={{
+                          width: '80px',
+                          height: '80px',
+                          background: isSelected ? '#FAF5FF' : '#FFFFFF',
+                          border: isSelected ? '2.5px solid var(--color-purple)' : '2px solid #E2E8F0',
+                          borderBottom: isSelected ? '5px solid var(--color-purple-dark)' : '5px solid #C084FC',
+                          borderRadius: '16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          transform: isSelected ? 'scale(1.05)' : 'scale(1)',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <span className="aksara-script" style={{ fontSize: '28px', color: 'var(--color-purple-dark)', fontWeight: 'bold' }}>
+                          {pair.aksara}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -500,11 +526,11 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
           {/* ==================================================== */}
           {/* MODE 2: TEBAK KATA (WORD GUESS) */}
           {/* ==================================================== */}
-          {activeType === 'word-guess' && config?.correctWord && (
+          {activeType === 'word-guess' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', alignItems: 'center' }}>
               <div style={{ padding: '16px', background: '#FFFBEB', borderRadius: '12px', border: '2px solid #FDE68A', width: '100%', textAlign: 'center' }}>
                 <span style={{ fontSize: '14px', fontWeight: '800', color: '#B45309', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Petunjuk (Clue)</span>
-                <span style={{ fontSize: '16px', fontWeight: '750', color: '#1F2937', marginTop: '4px', display: 'block' }}>{config.clue}</span>
+                <span style={{ fontSize: '16px', fontWeight: '750', color: '#1F2937', marginTop: '4px', display: 'block' }}>{wgClue}</span>
               </div>
 
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
@@ -533,11 +559,13 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
               </div>
 
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', maxWidth: '440px', background: '#F8FAFC', padding: '16px', borderRadius: '16px', border: '2px solid #E2E8F0' }}>
-                {config.letters.map((letter: string) => {
-                  const alreadyUsed = guessedWord.includes(letter);
+                {wgLetters.map((letter: string, btnIdx: number) => {
+                  const occurrencesInCorrect = (wgCorrectWord.split(letter).length - 1);
+                  const occurrencesInGuessed = guessedWord.slice(0, currentGuessIndex).filter(l => l === letter).length;
+                  const alreadyUsed = occurrencesInGuessed >= occurrencesInCorrect;
                   return (
                     <button
-                      key={letter}
+                      key={btnIdx}
                       onClick={() => handleLetterClick(letter)}
                       disabled={alreadyUsed}
                       className="btn-duo btn-duo-secondary"
@@ -571,7 +599,9 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
                   <path d="M50 70 Q35 60, 30 75 M50 70 Q65 60, 70 75" />
                   <circle cx="50" cy="130" r="8" fill="#8B4513" />
                 </svg>
-                <div style={{ position: 'absolute', top: '12px', left: '12px', background: 'rgba(255,255,255,0.85)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '800', border: '1px solid rgba(0,0,0,0.05)' }}>Wayang Gunungan</div>
+                <div style={{ position: 'absolute', top: '12px', left: '12px', background: 'rgba(255,255,255,0.85)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '800', border: '1px solid rgba(0,0,0,0.05)' }}>
+                  {config.imageLabel || config.imagePrompt?.split(',')[0] || 'Gambar Kuis'}
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', width: '100%' }}>
