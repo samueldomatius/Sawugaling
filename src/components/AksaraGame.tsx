@@ -90,6 +90,7 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
   const [lmMatchedPairs, setLmMatchedPairs] = useState<{leftId: string, rightId: string}[]>([]);
   const lmContainerRef = React.useRef<HTMLDivElement>(null);
   const [lmLines, setLmLines] = useState<{x1:number, y1:number, x2:number, y2:number}[]>([]);
+  const [lmWrongRight, setLmWrongRight] = useState<string | null>(null);
 
   // Initializing game states
   useEffect(() => {
@@ -100,14 +101,35 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
       const shuffled = [...config.pairs].sort(() => Math.random() - 0.5);
       setAvailableItems(shuffled);
       setDragMatches({});
-    } else if (activeType === 'line-match' && config?.pairs) {
-      const pairsLeft = config.pairs.map((p: any, i: number) => ({ id: `pair-${i}`, text: p.aksara || p.left }));
-      const pairsRight = config.pairs.map((p: any, i: number) => ({ id: `pair-${i}`, text: p.latin || p.right }));
-      setLmPairsLeft([...pairsLeft].sort(() => Math.random() - 0.5));
-      setLmPairsRight([...pairsRight].sort(() => Math.random() - 0.5));
+    } else if (activeType === 'line-match') {
+      const rawPairs = (config?.pairs && config.pairs.length > 0)
+        ? config.pairs
+        : [
+            { aksara: 'mangan', latin: 'dahar' },
+            { aksara: 'turu', latin: 'sare' },
+            { aksara: 'lunga', latin: 'tindak' },
+            { aksara: 'omah', latin: 'griya' }
+          ];
+      const pairsLeft = rawPairs.map((p: any, i: number) => ({ id: `pair-${i}`, text: p.aksara || p.left || '' }));
+      const pairsRight = rawPairs.map((p: any, i: number) => ({ id: `pair-${i}`, text: p.latin || p.right || '' }));
+      
+      const shuffledLeft = [...pairsLeft];
+      const shuffledRight = [...pairsRight];
+      for (let i = shuffledRight.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledRight[i], shuffledRight[j]] = [shuffledRight[j], shuffledRight[i]];
+      }
+      // Ensure right side is in different order from left if length > 1
+      if (shuffledRight.length > 1 && shuffledRight.every((item, idx) => item.id === shuffledLeft[idx]?.id)) {
+        [shuffledRight[0], shuffledRight[1]] = [shuffledRight[1], shuffledRight[0]];
+      }
+
+      setLmPairsLeft(shuffledLeft);
+      setLmPairsRight(shuffledRight);
       setLmSelectedLeft(null);
       setLmMatchedPairs([]);
       setLmLines([]);
+      setLmWrongRight(null);
     } else if (activeType === 'word-guess') {
       const rawWord = (config?.correctWord || config?.words?.[0]?.word || 'JAWA').toUpperCase();
       const rawClue = config?.clue || config?.words?.[0]?.hint || 'Aksara Jawa';
@@ -226,15 +248,21 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
         };
       }
       return null;
-    }).filter(Boolean) as any;
+    }).filter(Boolean) as { x1: number; y1: number; x2: number; y2: number }[];
     setLmLines(newLines);
   }, [lmMatchedPairs]);
 
   useEffect(() => {
     if (activeType === 'line-match') {
-      window.addEventListener('resize', updateLmLines);
-      updateLmLines(); // Initial draw if things re-render
-      return () => window.removeEventListener('resize', updateLmLines);
+      const handleResize = () => updateLmLines();
+      window.addEventListener('resize', handleResize);
+      const raf = requestAnimationFrame(() => {
+        updateLmLines();
+      });
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        cancelAnimationFrame(raf);
+      };
     }
   }, [updateLmLines, activeType]);
 
@@ -255,16 +283,15 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
       const newMatches = [...lmMatchedPairs, { leftId: lmSelectedLeft, rightId }];
       setLmMatchedPairs(newMatches);
       setLmSelectedLeft(null);
-      
-      // We need a small timeout for the DOM to update to draw lines, wait, updateLmLines is driven by effect!
-      setTimeout(() => updateLmLines(), 50);
 
-      if (newMatches.length === (config?.pairs?.length || 0)) {
+      if (newMatches.length === lmPairsLeft.length) {
         handleSuccessTrigger();
       }
     } else {
       // Wrong match
       playErrorChime();
+      setLmWrongRight(rightId);
+      setTimeout(() => setLmWrongRight(null), 700);
       deductHeart().then(() => window.dispatchEvent(new Event('profileUpdated')));
       setLmSelectedLeft(null); // Clear selection
     }
@@ -449,14 +476,34 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
     } else if (activeType === 'word-guess' && config?.correctWord) {
       setGuessedWord(Array(config.correctWord.length).fill(''));
       setCurrentGuessIndex(0);
-    } else if (activeType === 'line-match' && config?.pairs) {
-      const pairsLeft = config.pairs.map((p: any, i: number) => ({ id: `pair-${i}`, text: p.aksara || p.left }));
-      const pairsRight = config.pairs.map((p: any, i: number) => ({ id: `pair-${i}`, text: p.latin || p.right }));
-      setLmPairsLeft([...pairsLeft].sort(() => Math.random() - 0.5));
-      setLmPairsRight([...pairsRight].sort(() => Math.random() - 0.5));
+    } else if (activeType === 'line-match') {
+      const rawPairs = (config?.pairs && config.pairs.length > 0)
+        ? config.pairs
+        : [
+            { aksara: 'mangan', latin: 'dahar' },
+            { aksara: 'turu', latin: 'sare' },
+            { aksara: 'lunga', latin: 'tindak' },
+            { aksara: 'omah', latin: 'griya' }
+          ];
+      const pairsLeft = rawPairs.map((p: any, i: number) => ({ id: `pair-${i}`, text: p.aksara || p.left || '' }));
+      const pairsRight = rawPairs.map((p: any, i: number) => ({ id: `pair-${i}`, text: p.latin || p.right || '' }));
+      
+      const shuffledLeft = [...pairsLeft];
+      const shuffledRight = [...pairsRight];
+      for (let i = shuffledRight.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledRight[i], shuffledRight[j]] = [shuffledRight[j], shuffledRight[i]];
+      }
+      if (shuffledRight.length > 1 && shuffledRight.every((item, idx) => item.id === shuffledLeft[idx]?.id)) {
+        [shuffledRight[0], shuffledRight[1]] = [shuffledRight[1], shuffledRight[0]];
+      }
+
+      setLmPairsLeft(shuffledLeft);
+      setLmPairsRight(shuffledRight);
       setLmSelectedLeft(null);
       setLmMatchedPairs([]);
       setLmLines([]);
+      setLmWrongRight(null);
     } else if (activeType === 'picture-quiz') {
       setSelectedPictureOption(null);
     } else if (activeType === 'memory-match' && config?.pairs) {
@@ -513,11 +560,23 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
 
       {success ? (
         <div style={{ textAlign: 'center', padding: '32px 16px', background: '#F0FDF4', borderRadius: '16px', border: '2px solid #BBF7D0' }}>
+          <div style={{ fontSize: '48px', marginBottom: '8px' }}>🎉</div>
           <h4 style={{ color: 'var(--color-green-dark)', fontSize: '22px', fontWeight: '800', marginBottom: '8px' }}>
-            🎉 Sugeng! Game Bener Kabeh!
+            Sugeng! Game Rampung Kabeh!
           </h4>
-          <p style={{ color: '#374151', marginBottom: '20px', fontSize: '14px' }}>
-            Panjenengan wis pinter lan prigel ngrampungake tantangan dolanan iki! Nilai 100 kasimpen ing rekap guru.
+          {/* Poin earned display */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', margin: '16px 0' }}>
+            <div style={{ background: '#FFFFFF', border: '2px solid #BBF7D0', borderRadius: '14px', padding: '12px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '26px', fontWeight: '900', color: '#059669', lineHeight: '1' }}>100</div>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: '#065F46', marginTop: '2px', textTransform: 'uppercase' }}>Poin Game</div>
+            </div>
+            <div style={{ background: '#FFFFFF', border: '2px solid #C4B5FD', borderRadius: '14px', padding: '12px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '26px', fontWeight: '900', color: '#7C3AED', lineHeight: '1' }}>+30</div>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: '#5B21B6', marginTop: '2px', textTransform: 'uppercase' }}>XP Bonus</div>
+            </div>
+          </div>
+          <p style={{ color: '#374151', marginBottom: '20px', fontSize: '13px' }}>
+            Poin game lan XP wis kasimpen ing rekap guru. Matur nuwun!
           </p>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
             <button className="btn-duo btn-duo-primary" style={{ width: 'auto' }} onClick={onComplete}>
@@ -845,77 +904,172 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
           {/* MODE 7: JODOH-JODHOAKEN (LINE MATCH) */}
           {/* ==================================================== */}
           {activeType === 'line-match' && (
-            <div ref={lmContainerRef} style={{ position: 'relative', width: '100%', minHeight: '300px', display: 'flex', justifyContent: 'space-between', gap: '32px' }}>
-              
-              {/* SVG Canvas for Lines */}
-              <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
-                {lmLines.map((line, idx) => (
-                  <line 
-                    key={idx}
-                    x1={line.x1} y1={line.y1} 
-                    x2={line.x2} y2={line.y2}
-                    stroke="#10B981" 
-                    strokeWidth="4" 
-                    strokeLinecap="round"
-                  />
-                ))}
-              </svg>
-
-              {/* LEFT SIDE (Ngoko / Aksara) */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, zIndex: 2 }}>
-                {lmPairsLeft.map((item) => {
-                  const isSelected = lmSelectedLeft === item.id;
-                  const isMatched = lmMatchedPairs.some(m => m.leftId === item.id);
-                  return (
-                    <button
-                      key={`left-${item.id}`}
-                      id={`lm-left-${item.id}`}
-                      onClick={() => handleLmLeftClick(item.id)}
-                      disabled={isMatched}
-                      className="btn-duo btn-duo-secondary"
-                      style={{
-                        padding: '16px',
-                        fontSize: '18px',
-                        fontWeight: '800',
-                        opacity: isMatched ? 0.4 : 1,
-                        background: isSelected ? '#FEF3C7' : '#F8FAFC',
-                        borderColor: isSelected ? '#F59E0B' : '#E2E8F0',
-                        color: isSelected ? '#92400E' : '#333'
-                      }}
-                    >
-                      {item.text}
-                    </button>
-                  );
-                })}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Guidance banner */}
+              <div style={{
+                padding: '12px 18px',
+                borderRadius: '12px',
+                background: lmSelectedLeft ? '#FEF3C7' : '#F1F5F9',
+                border: '1.5px solid ' + (lmSelectedLeft ? '#F59E0B' : '#E2E8F0'),
+                fontSize: '14px',
+                fontWeight: '700',
+                color: lmSelectedLeft ? '#92400E' : '#475569',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                transition: 'all 0.2s ease'
+              }}>
+                <span style={{ fontSize: '18px' }}>{lmSelectedLeft ? '👉' : '👆'}</span>
+                <span>
+                  {lmSelectedLeft 
+                    ? 'Bagus! Saiki klik tembung jodhone ing kolom tengen.' 
+                    : 'Pilih salah siji tembung ing sisih kiwa dhisik, banjur klik jodhone ing sisih tengen!'}
+                </span>
               </div>
 
-              {/* RIGHT SIDE (Krama / Latin) */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, zIndex: 2 }}>
-                {lmPairsRight.map((item) => {
-                  const isMatched = lmMatchedPairs.some(m => m.rightId === item.id);
-                  return (
-                    <button
-                      key={`right-${item.id}`}
-                      id={`lm-right-${item.id}`}
-                      onClick={() => handleLmRightClick(item.id)}
-                      disabled={isMatched || !lmSelectedLeft}
-                      className="btn-duo"
-                      style={{
-                        padding: '16px',
-                        fontSize: '18px',
-                        fontWeight: '800',
-                        opacity: isMatched ? 0.4 : (lmSelectedLeft ? 1 : 0.7),
-                        background: '#FFFFFF',
-                        borderColor: '#E2E8F0',
-                        color: '#333'
-                      }}
-                    >
-                      {item.text}
-                    </button>
-                  );
-                })}
+              {/* Column labels */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '32px', padding: '0 4px' }}>
+                <div style={{ flex: 1, fontSize: '13px', fontWeight: '800', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  🏷️ Kolom Kiwa (Ngoko / Soal)
+                </div>
+                <div style={{ flex: 1, fontSize: '13px', fontWeight: '800', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>
+                  ✨ Kolom Tengen (Krama / Jodho)
+                </div>
               </div>
 
+              {/* Matching container */}
+              <div ref={lmContainerRef} style={{ position: 'relative', width: '100%', minHeight: '260px', display: 'flex', justifyContent: 'space-between', gap: '48px' }}>
+                
+                {/* SVG Canvas for Lines */}
+                <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
+                  <defs>
+                    <linearGradient id="lmGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#10B981" />
+                      <stop offset="100%" stopColor="#059669" />
+                    </linearGradient>
+                    <filter id="lmGlow" x="-20%" y="-20%" width="140%" height="140%">
+                      <feDropShadow dx="0" dy="1" stdDeviation="3" floodColor="#10B981" floodOpacity="0.4"/>
+                    </filter>
+                  </defs>
+                  {lmLines.map((line, idx) => (
+                    <g key={idx}>
+                      <line 
+                        x1={line.x1} y1={line.y1} 
+                        x2={line.x2} y2={line.y2}
+                        stroke="#10B981" 
+                        strokeWidth="7" 
+                        strokeLinecap="round"
+                        strokeOpacity="0.25"
+                      />
+                      <line 
+                        x1={line.x1} y1={line.y1} 
+                        x2={line.x2} y2={line.y2}
+                        stroke="url(#lmGrad)" 
+                        strokeWidth="4" 
+                        strokeLinecap="round"
+                        filter="url(#lmGlow)"
+                      />
+                      <circle cx={line.x1} cy={line.y1} r="6" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
+                      <circle cx={line.x2} cy={line.y2} r="6" fill="#059669" stroke="#FFFFFF" strokeWidth="2" />
+                    </g>
+                  ))}
+                </svg>
+
+                {/* LEFT SIDE (Ngoko / Aksara) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1, zIndex: 2 }}>
+                  {lmPairsLeft.map((item) => {
+                    const isSelected = lmSelectedLeft === item.id;
+                    const isMatched = lmMatchedPairs.some(m => m.leftId === item.id);
+                    return (
+                      <button
+                        key={`left-${item.id}`}
+                        id={`lm-left-${item.id}`}
+                        onClick={() => handleLmLeftClick(item.id)}
+                        disabled={isMatched}
+                        className="btn-duo"
+                        style={{
+                          padding: '14px 18px',
+                          fontSize: '17px',
+                          fontWeight: '800',
+                          cursor: isMatched ? 'default' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          background: isMatched ? '#ECFDF5' : (isSelected ? '#FEF3C7' : '#FFFFFF'),
+                          borderColor: isMatched ? '#10B981' : (isSelected ? '#F59E0B' : '#E2E8F0'),
+                          color: isMatched ? '#065F46' : (isSelected ? '#92400E' : '#1F2937'),
+                          boxShadow: isSelected ? '0 0 0 3px rgba(245, 158, 11, 0.25)' : undefined,
+                          transform: isSelected ? 'scale(1.02)' : 'none',
+                          transition: 'all 0.15s ease',
+                          borderBottomWidth: '4px'
+                        }}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {isMatched && <span style={{ color: '#10B981' }}>✓</span>}
+                          <span>{item.text}</span>
+                        </span>
+                        <span style={{
+                          width: '12px',
+                          height: '12px',
+                          borderRadius: '50%',
+                          background: isMatched ? '#10B981' : (isSelected ? '#F59E0B' : '#CBD5E1'),
+                          border: '2px solid #FFFFFF',
+                          boxShadow: '0 0 0 2px ' + (isMatched ? '#10B981' : (isSelected ? '#F59E0B' : '#CBD5E1')),
+                          flexShrink: 0
+                        }} />
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* RIGHT SIDE (Krama / Latin) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1, zIndex: 2 }}>
+                  {lmPairsRight.map((item) => {
+                    const isMatched = lmMatchedPairs.some(m => m.rightId === item.id);
+                    const isWrong = lmWrongRight === item.id;
+                    return (
+                      <button
+                        key={`right-${item.id}`}
+                        id={`lm-right-${item.id}`}
+                        onClick={() => handleLmRightClick(item.id)}
+                        disabled={isMatched || !lmSelectedLeft}
+                        className="btn-duo"
+                        style={{
+                          padding: '14px 18px',
+                          fontSize: '17px',
+                          fontWeight: '800',
+                          cursor: isMatched ? 'default' : (lmSelectedLeft ? 'pointer' : 'not-allowed'),
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          background: isMatched ? '#ECFDF5' : (isWrong ? '#FEE2E2' : '#FFFFFF'),
+                          borderColor: isMatched ? '#10B981' : (isWrong ? '#EF4444' : '#E2E8F0'),
+                          color: isMatched ? '#065F46' : (isWrong ? '#991B1B' : '#1F2937'),
+                          opacity: isMatched ? 1 : (lmSelectedLeft ? 1 : 0.65),
+                          transform: isWrong ? 'scale(0.98)' : 'none',
+                          transition: 'all 0.15s ease',
+                          borderBottomWidth: '4px'
+                        }}
+                      >
+                        <span style={{
+                          width: '12px',
+                          height: '12px',
+                          borderRadius: '50%',
+                          background: isMatched ? '#10B981' : (isWrong ? '#EF4444' : '#CBD5E1'),
+                          border: '2px solid #FFFFFF',
+                          boxShadow: '0 0 0 2px ' + (isMatched ? '#10B981' : (isWrong ? '#EF4444' : '#CBD5E1')),
+                          flexShrink: 0
+                        }} />
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span>{item.text}</span>
+                          {isMatched && <span style={{ color: '#10B981' }}>✓</span>}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+              </div>
             </div>
           )}
 

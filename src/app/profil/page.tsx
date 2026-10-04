@@ -5,7 +5,7 @@ import Navigation from '@/components/Navigation';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import RegisterModal from '@/components/RegisterModal';
-import { getStudentProfile, StudentProfile, getChapterProgress, getJavaneseRank } from '@/lib/db';
+import { getStudentProfile, StudentProfile, getChapterProgress, getJavaneseRank, getLeaderboard } from '@/lib/db';
 import { playSaronChime, playWelcomeGamelan, playSuccessChime } from '@/lib/audio';
 
 function ProfileInner() {
@@ -20,6 +20,7 @@ function ProfileInner() {
   const [ch4Prog, setCh4Prog] = useState<any>(defaultProg);
   const [showRegister, setShowRegister] = useState(false);
   const [activeTab, setActiveTab] = useState<'pohon' | 'peta' | 'misi' | 'liga'>('pohon');
+  const [leaderboardData, setLeaderboardData] = useState<{ name: string; xp: number; className: string; uniqueCode: string }[]>([]);
 
   useEffect(() => {
     if (initialTab && ['pohon', 'peta', 'misi', 'liga'].includes(initialTab)) {
@@ -32,20 +33,16 @@ function ProfileInner() {
   
   const currentRank = getJavaneseRank(profile ? profile.xp : 0);
 
-  // Helper helper functions replica to feed stats
-  const getLeaderboardList = () => {
-    const studentName = profile ? profile.name : 'Kamu (Tamu)';
-    const studentXp = profile ? profile.xp : 0;
-    
-    const list = [
-      { name: "Adipati Gatot", xp: 320, avatar: "🦁", isSelf: false },
-      { name: "Senopati Siti", xp: 180, avatar: "🐯", isSelf: false },
-      { name: "Cantrik Budi", xp: 80, avatar: "🐼", isSelf: false },
-      { name: "Cantrik Kartini", xp: 30, avatar: "🦊", isSelf: false },
-      { name: studentName, xp: studentXp, avatar: "👦", isSelf: true }
-    ];
+  const AVATARS = ['🦁','🐯','🦊','🐼','🐸','🦅','🦋','🐉','🦄','🐺'];
 
-    return list.sort((a, b) => b.xp - a.xp);
+  const getLeaderboardList = () => {
+    const currentCode = profile?.uniqueCode || '';
+    return leaderboardData.map((u, i) => ({
+      name: u.name,
+      xp: u.xp,
+      avatar: AVATARS[i % AVATARS.length],
+      isSelf: u.uniqueCode === currentCode,
+    }));
   };
 
   const getDailyQuests = () => {
@@ -64,8 +61,12 @@ function ProfileInner() {
   const [waringinTooltip, setWaringinTooltip] = useState<string | null>(null);
 
   const loadProfileData = async () => {
-    const currentProfile = await getStudentProfile();
+    const [currentProfile, lbData] = await Promise.all([
+      getStudentProfile(),
+      getLeaderboard()
+    ]);
     setProfile(currentProfile);
+    setLeaderboardData(lbData);
     if (!currentProfile) {
       setShowRegister(true);
     }

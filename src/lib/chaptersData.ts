@@ -3,6 +3,13 @@ export interface AccordionSection {
   content: string;
 }
 
+export interface GlosariumEntry {
+  tembung: string;
+  ngoko: string;
+  krama: string;
+  tegese: string;
+}
+
 export interface Question {
   id: string;
   type: 'multiple-choice' | 'text' | 'matching';
@@ -12,10 +19,16 @@ export interface Question {
   matchingPairs?: { left: string; right: string }[]; // For matching type
 }
 
+export interface DhongengAnalysisRow {
+  aspect: string;
+  explanation: string;
+}
+
 export interface DhongengPage {
   pageIndex: number;
   text: string;
   illustrationPrompt: string; // Used to generate image
+  analysisTable?: DhongengAnalysisRow[];
 }
 
 export interface Chapter {
@@ -44,6 +57,7 @@ export interface Chapter {
     description: string;
     config: any;
   };
+  glosarium?: GlosariumEntry[];
   mapConfig?: {
     materi?: boolean;
     dhongeng?: boolean;
@@ -85,5 +99,13 @@ export const kamisMateri = {
         { name: "Pak Guru (Ngoko/Krama Lugu)", text: "Matur nuwun, le. Selehna kene, mengko tak biji." }
       ]
     }
+  ],
+  vocab: [
+    { ngoko: 'mangan', krama: 'nedha / dahar' },
+    { ngoko: 'lunga', krama: 'tindak / kesah' },
+    { ngoko: 'turu', krama: 'sare / tilem' },
+    { ngoko: 'omah', krama: 'griya / dalem' },
+    { ngoko: 'aku', krama: 'kula / kawula' },
+    { ngoko: 'kowe', krama: 'panjenengan / sampeyan' },
   ]
 };

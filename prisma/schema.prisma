@@ -70,5 +70,6 @@ model CustomChapter {
   dhongeng    Json
   lkpd        Json
   game        Json
+  glosarium   Json?
   createdAt   DateTime @default(now())
 }

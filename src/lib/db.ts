@@ -142,6 +142,19 @@ export const purchaseItem = async (itemName: string, price: number) => {
   }
 };
 
+export const getCustomKamis = (): any => {
+  if (typeof window === 'undefined') return null;
+  const data = localStorage.getItem('sawugaling_custom_kamis');
+  if (data) return JSON.parse(data);
+  return null;
+};
+
+export const setCustomKamis = (data: any) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('sawugaling_custom_kamis', JSON.stringify(data));
+  }
+};
+
 export const claimSpinReward = async (result: { type: 'XP' | 'HEART' | 'ZONK', value: number }) => {
   const code = getUniqueCode();
   if (code) await actions.claimSpinReward(code, result);

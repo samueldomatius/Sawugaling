@@ -191,7 +191,8 @@ export async function getLeaderboard() {
   return users.map(u => ({
     name: u.name,
     xp: u.xp,
-    className: u.className
+    className: u.className,
+    uniqueCode: u.uniqueCode
   }));
 }
 
@@ -225,6 +226,7 @@ export async function getAllChapters() {
         dhongeng: override.dhongeng as any,
         lkpd: override.lkpd as any,
         game: override.game as any,
+        glosarium: override.glosarium as any,
         _customId: override.id, // store the custom DB id for edit reference
         _isOverride: true,
       };
@@ -244,6 +246,7 @@ export async function getAllChapters() {
       dhongeng: c.dhongeng as any,
       lkpd: c.lkpd as any,
       game: c.game as any,
+      glosarium: c.glosarium as any,
     }));
 
   return [...builtins, ...newCustom];
@@ -259,6 +262,7 @@ export async function addCustomChapter(data: any) {
       dhongeng: data.dhongeng,
       lkpd: data.lkpd,
       game: data.game,
+      glosarium: data.glosarium || [],
       builtinId: data.builtinId ?? null,
     }
   });
@@ -275,6 +279,7 @@ export async function updateCustomChapter(id: number, data: any) {
       dhongeng: data.dhongeng,
       lkpd: data.lkpd,
       game: data.game,
+      glosarium: data.glosarium || [],
     }
   });
 }
@@ -291,6 +296,7 @@ export async function upsertBuiltinOverride(builtinId: number, data: any) {
       dhongeng: data.dhongeng,
       lkpd: data.lkpd,
       game: data.game,
+      glosarium: data.glosarium || [],
     },
     create: {
       builtinId,
@@ -301,6 +307,7 @@ export async function upsertBuiltinOverride(builtinId: number, data: any) {
       dhongeng: data.dhongeng,
       lkpd: data.lkpd,
       game: data.game,
+      glosarium: data.glosarium || [],
     },
   });
 }

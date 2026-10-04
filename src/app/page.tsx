@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { getChapterProgress, ChapterProgress, isThursdayMode, StudentProfile, getStudentProfile, clearStudentProfile, getChaptersList, getJavaneseRank, purchaseItem, claimSpinReward, getAllChapterProgresses, getMapInitData } from '@/lib/db';
+import { getChapterProgress, ChapterProgress, isThursdayMode, StudentProfile, getStudentProfile, clearStudentProfile, getChaptersList, getJavaneseRank, purchaseItem, claimSpinReward, getAllChapterProgresses, getMapInitData, getLeaderboard } from '@/lib/db';
 import { playSaronChime, playWelcomeGamelan, startAmbientGamelan, playSpinTick, playSuccessChime } from '@/lib/audio';
 import dynamic from 'next/dynamic';
 import Navigation from '@/components/Navigation';
@@ -27,6 +27,7 @@ export default function Home() {
   const [isThursday, setIsThursday] = useState(false);
   const [stats, setStats] = useState({ totalUnlocked: 1, totalDone: 0, overallProgress: 0 });
   const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [leaderboardData, setLeaderboardData] = useState<{ name: string; xp: number; className: string; uniqueCode: string }[]>([]);
 
   const [showIntro, setShowIntro] = useState(true);
   const [isCurtainOpen, setIsCurtainOpen] = useState(false);
@@ -60,8 +61,10 @@ export default function Home() {
   const refreshState = useCallback(async () => {
     try {
     // 1. Fetch map initial data in a SINGLE bundled request
-    const { chapters: list, profile: currentProfile, progress: progressList } = await getMapInitData();
+    const [mapData, lbData] = await Promise.all([getMapInitData(), getLeaderboard()]);
+    const { chapters: list, profile: currentProfile, progress: progressList } = mapData;
     setChapters(list);
+    setLeaderboardData(lbData);
     setIsThursday(isThursdayMode());
 
     setProfile(currentProfile);
@@ -380,21 +383,20 @@ export default function Home() {
     }
   };
 
-  // Generate dynamic Weekly Leaderboard ranking based on Student Profile XP
-  const leaderboardList = useMemo(() => {
-    const studentName = profile ? profile.name : 'Kamu (Tamu)';
-    const studentXp = profile ? profile.xp : 0;
-    
-    const list = [
-      { name: "Adipati Gatot", xp: 320, avatar: "🦁", isSelf: false },
-      { name: "Senopati Siti", xp: 180, avatar: "🐯", isSelf: false },
-      { name: "Cantrik Budi", xp: 80, avatar: "🐼", isSelf: false },
-      { name: "Cantrik Kartini", xp: 30, avatar: "🦊", isSelf: false },
-      { name: studentName, xp: studentXp, avatar: "👦", isSelf: true }
-    ];
+  // Avatar emoji list cycling
+  const AVATARS = ['🦁','🐯','🦊','🐼','🐸','🦅','🦋','🐉','🦄','🐺'];
 
-    return list.sort((a, b) => b.xp - a.xp);
-  }, [profile]);
+  // Build real leaderboard from DB data
+  const leaderboardList = useMemo(() => {
+    const currentCode = profile?.uniqueCode || '';
+    return leaderboardData.map((u, i) => ({
+      name: u.name,
+      xp: u.xp,
+      className: u.className,
+      avatar: AVATARS[i % AVATARS.length],
+      isSelf: u.uniqueCode === currentCode,
+    }));
+  }, [leaderboardData, profile]);
 
   // Check interactive state of daily quests based on local storage
   const dailyQuests = useMemo(() => {
