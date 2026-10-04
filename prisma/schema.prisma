@@ -73,3 +73,8 @@ model CustomChapter {
   glosarium   Json?
   createdAt   DateTime @default(now())
 }
+
+model GlobalConfig {
+  key   String @id
+  value Json
+}

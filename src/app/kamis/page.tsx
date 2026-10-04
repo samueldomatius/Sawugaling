@@ -74,7 +74,7 @@ export default function KamisPage() {
     setIsThursday(isThursdayMode());
     
     // Load custom kamis config
-    const customConfig = getCustomKamis();
+    const customConfig = await getCustomKamis();
     if (customConfig) {
       if (customConfig.materi) setKamisMateri(customConfig.materi);
       if (customConfig.quiz && customConfig.quiz.length > 0) setKamisQuiz(customConfig.quiz);

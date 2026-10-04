@@ -5,7 +5,7 @@ import {
   getScoreLogs, getVisitorLogs, ScoreLog, VisitorLog, downloadCSV,
   getChaptersList, addCustomChapter, updateCustomChapter, deleteCustomChapter,
   upsertBuiltinOverride, isThursdayMode, setSimulatedThursday,
-  getUraianSubmissions, gradeUraian
+  getUraianSubmissions, gradeUraian, deleteScoreLog, updateUser, deleteUser
 } from '@/lib/db';
 import { loginTeacher, logoutTeacher, isTeacherLoggedIn } from '@/lib/teacher-auth';
 import { Chapter, Question, DhongengPage, AccordionSection } from '@/lib/chaptersData';
@@ -1307,17 +1307,27 @@ export default function GuruDashboard() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                   <thead>
                     <tr style={{ background: '#F8FAFC' }}>
-                      {['Nama Siswa','Kelas','Bab','Aktivitas','Poin','Waktu'].map(h => (
+                      {['Nama Siswa','Kelas','Bab','Aktivitas','Poin','Waktu','Aksi'].map(h => (
                         <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #E5E7EB' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {filteredScores.length === 0 ? (
-                      <tr><td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: '#9CA3AF', fontSize: '15px' }}>Belum ada data nilai siswa.</td></tr>
-                    ) : filteredScores.map((log, i) => (
+                      <tr><td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: '#9CA3AF', fontSize: '15px' }}>Belum ada data nilai siswa.</td></tr>
+                    ) : filteredScores.map((log: any, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid #F1F5F9', background: i % 2 === 0 ? '#fff' : '#FAFAFA' }}>
-                        <td style={{ padding: '12px 16px', fontWeight: '700', color: '#1F2937' }}>{log.studentName}</td>
+                        <td style={{ padding: '12px 16px', fontWeight: '700', color: '#1F2937' }}>
+                          {log.studentName}
+                          <button onClick={async () => {
+                            const newName = prompt('Masukkan nama baru:', log.studentName);
+                            if (newName) {
+                              const newClass = prompt('Masukkan kelas baru:', log.studentClass) || log.studentClass;
+                              const res = await updateUser(log.uniqueCode, newName, newClass);
+                              if (res.success) { alert('Berhasil!'); loadData(); } else { alert('Gagal: ' + res.error); }
+                            }
+                          }} style={{ marginLeft: '8px', cursor: 'pointer', background: 'none', border: 'none', fontSize: '12px' }}>✏️</button>
+                        </td>
                         <td style={{ padding: '12px 16px', color: '#374151' }}>{log.studentClass}</td>
                         <td style={{ padding: '12px 16px', color: '#374151' }}>Bab {log.chapterId}</td>
                         <td style={{ padding: '12px 16px' }}>
@@ -1330,6 +1340,20 @@ export default function GuruDashboard() {
                           <span style={{ fontSize: '12px', color: '#6B7280', fontWeight: '600' }}>/{log.maxScore} poin</span>
                         </td>
                         <td style={{ padding: '12px 16px', color: '#6B7280', fontSize: '13px' }}>{new Date(log.timestamp).toLocaleString('id-ID')}</td>
+                        <td style={{ padding: '12px 16px', display: 'flex', gap: '6px' }}>
+                          <button onClick={async () => {
+                            if (confirm('Hapus log history nilai ini?')) {
+                              const res = await deleteScoreLog(log.id);
+                              if (res.success) loadData(); else alert('Gagal: ' + res.error);
+                            }
+                          }} style={{ padding: '4px 8px', borderRadius: '6px', background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>Hapus History</button>
+                          <button onClick={async () => {
+                            if (confirm(`Hapus SELURUH akun murid ${log.studentName} dan datanya?`)) {
+                              const res = await deleteUser(log.uniqueCode);
+                              if (res.success) loadData(); else alert('Gagal: ' + res.error);
+                            }
+                          }} style={{ padding: '4px 8px', borderRadius: '6px', background: '#DC2626', color: '#fff', border: 'none', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>Hapus User</button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

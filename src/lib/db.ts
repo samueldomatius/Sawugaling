@@ -142,17 +142,12 @@ export const purchaseItem = async (itemName: string, price: number) => {
   }
 };
 
-export const getCustomKamis = (): any => {
-  if (typeof window === 'undefined') return null;
-  const data = localStorage.getItem('sawugaling_custom_kamis');
-  if (data) return JSON.parse(data);
-  return null;
+export const getCustomKamis = async (): Promise<any> => {
+  return await actions.getGlobalConfig('sawugaling_custom_kamis');
 };
 
-export const setCustomKamis = (data: any) => {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('sawugaling_custom_kamis', JSON.stringify(data));
-  }
+export const setCustomKamis = async (data: any) => {
+  return await actions.setGlobalConfig('sawugaling_custom_kamis', data);
 };
 
 export const claimSpinReward = async (result: { type: 'XP' | 'HEART' | 'ZONK', value: number }) => {
@@ -246,6 +241,9 @@ export const playSaronChime = (freq?: number) => {
 
 export const seedMockDataIfEmpty = () => {};
 export const getScoreLogs = actions.getScoreLogs;
+export const deleteScoreLog = actions.deleteScoreLog;
+export const updateUser = actions.updateUser;
+export const deleteUser = actions.deleteUser;
 export const getVisitorLogs = actions.getVisitorLogs;
 export const addCustomChapter = actions.addCustomChapter;
 export const updateCustomChapter = actions.updateCustomChapter;

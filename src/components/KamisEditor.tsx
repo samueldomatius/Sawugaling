@@ -36,20 +36,21 @@ export default function KamisEditor() {
   const [activeTab, setActiveTab] = useState<'materi' | 'gladhen' | 'kuis'>('materi');
 
   useEffect(() => {
-    const customConfig = getCustomKamis();
-    if (customConfig) {
-      if (customConfig.materi) setMateri(customConfig.materi);
-      if (customConfig.quiz) setQuiz(customConfig.quiz);
-    }
+    const load = async () => {
+      const customConfig = await getCustomKamis();
+      if (customConfig) {
+        if (customConfig.materi) setMateri(customConfig.materi);
+        if (customConfig.quiz) setQuiz(customConfig.quiz);
+      }
+    };
+    load();
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    setCustomKamis({ materi, quiz });
-    setTimeout(() => {
-      setSaving(false);
-      alert('Konfigurasi Hari Kamis berhasil disimpan!');
-    }, 500);
+    await setCustomKamis({ materi, quiz });
+    setSaving(false);
+    alert('Konfigurasi Hari Kamis berhasil disimpan!');
   };
 
   // ── RULE handlers ──

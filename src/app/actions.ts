@@ -196,6 +196,33 @@ export async function getLeaderboard() {
   }));
 }
 
+export async function getGlobalConfig(key: string) {
+  try {
+    const record = await prisma.globalConfig.findUnique({
+      where: { key }
+    });
+    if (record) return record.value;
+    return null;
+  } catch (e) {
+    console.error("Error reading GlobalConfig", e);
+    return null;
+  }
+}
+
+export async function setGlobalConfig(key: string, value: any) {
+  try {
+    await prisma.globalConfig.upsert({
+      where: { key },
+      update: { value },
+      create: { key, value }
+    });
+    return { success: true };
+  } catch (e) {
+    console.error("Error writing GlobalConfig", e);
+    return { success: false, error: String(e) };
+  }
+}
+
 export async function getAllChapters() {
   let custom = [];
   try {
@@ -322,6 +349,8 @@ export async function getScoreLogs() {
     orderBy: { timestamp: 'desc' }
   });
   return logs.map(l => ({
+    id: l.id,
+    uniqueCode: l.user.uniqueCode,
     studentName: l.user.name,
     studentClass: l.user.className,
     chapterId: l.chapterId,
@@ -331,6 +360,43 @@ export async function getScoreLogs() {
     maxScore: l.maxScore,
     timestamp: l.timestamp.toISOString()
   }));
+}
+
+export async function deleteScoreLog(id: string) {
+  try {
+    await prisma.scoreLog.delete({ where: { id } });
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
+}
+
+export async function updateUser(uniqueCode: string, newName: string, newClass: string) {
+  try {
+    await prisma.user.update({
+      where: { uniqueCode },
+      data: { name: newName, className: newClass }
+    });
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
+}
+
+export async function deleteUser(uniqueCode: string) {
+  try {
+    // Delete related records first due to foreign keys
+    const user = await prisma.user.findUnique({ where: { uniqueCode } });
+    if (!user) return { success: false, error: "Not found" };
+    
+    await prisma.chapterProgress.deleteMany({ where: { userId: user.id } });
+    await prisma.scoreLog.deleteMany({ where: { userId: user.id } });
+    await prisma.visitorLog.deleteMany({ where: { userId: user.id } });
+    await prisma.user.delete({ where: { uniqueCode } });
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
 }
 
 export async function getVisitorLogs() {
