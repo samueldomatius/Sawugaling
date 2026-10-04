@@ -40,20 +40,21 @@ export interface VisitorLog {
   timestamp: string | Date;
 }
 
-// Thursday Mode (Simulated Client-Side)
-const DEV_THURSDAY_KEY = 'sinau_jawa_dev_thursday';
-
-export const isThursdayMode = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  const isSimulated = localStorage.getItem(DEV_THURSDAY_KEY) === 'true';
+// Thursday Mode (Simulated Globally via DB)
+export const isThursdayMode = async (): Promise<boolean> => {
+  const override = await actions.getGlobalConfig('thursday_mode_override');
+  if (override !== null) {
+    return override as boolean;
+  }
   const today = new Date();
-  return isSimulated || today.getDay() === 4;
+  return today.getDay() === 4;
 };
 
-export const setSimulatedThursday = (value: boolean): void => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(DEV_THURSDAY_KEY, value ? 'true' : 'false');
-  window.dispatchEvent(new Event('storage'));
+export const setSimulatedThursday = async (value: boolean): Promise<void> => {
+  await actions.setGlobalConfig('thursday_mode_override', value);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('thursdayModeChanged'));
+  }
 };
 
 // Authentication Methods (Client-Side wrappers)

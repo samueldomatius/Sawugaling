@@ -61,11 +61,11 @@ export default function Home() {
   const refreshState = useCallback(async () => {
     try {
     // 1. Fetch map initial data in a SINGLE bundled request
-    const [mapData, lbData] = await Promise.all([getMapInitData(), getLeaderboard()]);
+    const [mapData, lbData, thursdayStatus] = await Promise.all([getMapInitData(), getLeaderboard(), isThursdayMode()]);
     const { chapters: list, profile: currentProfile, progress: progressList } = mapData;
     setChapters(list);
     setLeaderboardData(lbData);
-    setIsThursday(isThursdayMode());
+    setIsThursday(thursdayStatus);
 
     setProfile(currentProfile);
     if (!currentProfile) {
@@ -133,8 +133,8 @@ export default function Home() {
   useEffect(() => {
     refreshState();
 
-    const handleThursdayChange = () => {
-      setIsThursday(isThursdayMode());
+    const handleThursdayChange = async () => {
+      setIsThursday(await isThursdayMode());
     };
     const handleProfileChange = async () => {
       setProfile(await getStudentProfile());

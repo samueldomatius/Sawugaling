@@ -71,7 +71,7 @@ export default function KamisPage() {
   const refreshState = useCallback(async () => {
     const currentProfile = await getStudentProfile();
     setProfile(currentProfile);
-    setIsThursday(isThursdayMode());
+    setIsThursday(await isThursdayMode());
     
     // Load custom kamis config
     const customConfig = await getCustomKamis();
@@ -86,8 +86,8 @@ export default function KamisPage() {
   useEffect(() => {
     refreshState();
 
-    const handleThursdayChange = () => {
-      setIsThursday(isThursdayMode());
+    const handleThursdayChange = async () => {
+      setIsThursday(await isThursdayMode());
     };
     const handleProfileChange = async () => {
       setProfile(await getStudentProfile());

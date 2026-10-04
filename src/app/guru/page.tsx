@@ -1077,7 +1077,7 @@ export default function GuruDashboard() {
 
   useEffect(() => {
     setIsLoggedIn(isTeacherLoggedIn());
-    setThursdayMode(isThursdayMode());
+    isThursdayMode().then(setThursdayMode);
   }, []);
 
   const [uraianSubmissions, setUraianSubmissions] = useState<any[]>([]);

@@ -11,12 +11,12 @@ export default function DeveloperToolbar({ onRefresh }: DeveloperToolbarProps) {
   const [isThursday, setIsThursday] = useState(false);
 
   useEffect(() => {
-    setIsThursday(isThursdayMode());
+    isThursdayMode().then(setIsThursday);
   }, []);
 
-  const handleThursdayToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleThursdayToggle = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const checked = e.target.checked;
-    setSimulatedThursday(checked);
+    await setSimulatedThursday(checked);
     setIsThursday(checked);
     onRefresh();
     // Dispatch a custom event to notify all components about date mode changes
