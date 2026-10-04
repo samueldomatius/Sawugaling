@@ -34,6 +34,8 @@ model ChapterProgress {
   materiDone   Boolean  @default(false)
   dhongengDone Boolean  @default(false)
   lkpdScore    Int?
+  lkpdUraianScore Int?
+  lkpdUraianAnswers Json?
   gameDone     Boolean  @default(false)
 
   @@unique([userId, chapterId])

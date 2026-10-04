@@ -85,26 +85,20 @@ export default function Home() {
       if (safeProg.gameDone) completedActivities++;
     });
 
-    const ch1 = progresses[1];
-    const ch1Completed = ch1 && ch1.materiDone && ch1.dhongengDone && (ch1.lkpdScore !== null) && ch1.gameDone;
-    if (ch1Completed) {
-      unlockedCount = 2;
-    }
-
-    const ch2 = progresses[2];
-    const ch2Completed = ch2 && ch2.materiDone && ch2.dhongengDone && (ch2.lkpdScore !== null) && ch2.gameDone;
-    if (ch1Completed && ch2Completed) {
-      unlockedCount = 3;
-    }
-
-    // Dynamic custom chapters unlocking
-    for (let cId = 3; cId < list.length; cId++) {
-      const prevCh = progresses[cId];
-      const prevChCompleted = prevCh && prevCh.materiDone && prevCh.dhongengDone && (prevCh.lkpdScore !== null) && prevCh.gameDone;
-      if (prevChCompleted && unlockedCount === cId) {
-        unlockedCount = cId + 1;
+    // Dynamic chapter unlocking based on INDEX (not ID), so custom chapters (id 1000+) work too
+    // The first chapter is always unlocked. Each subsequent chapter unlocks when the previous is completed.
+    unlockedCount = 0; // reset, rebuild from scratch
+    list.forEach((ch, idx) => {
+      const prog = progresses[ch.id] || { materiDone: false, dhongengDone: false, lkpdScore: null, gameDone: false };
+      const isCompleted = prog.materiDone && prog.dhongengDone && (prog.lkpdScore !== null) && prog.gameDone;
+      if (idx === 0) {
+        // First chapter is always unlocked
+        if (unlockedCount < 1) unlockedCount = 1;
       }
-    }
+      if (isCompleted && unlockedCount <= idx + 1) {
+        unlockedCount = idx + 2; // unlock the next one
+      }
+    });
 
     setChapterProgresses(progresses);
     
@@ -695,7 +689,7 @@ export default function Home() {
 
             <div id="chapters">
               {chapters.map((ch, idx) => {
-                const chUnlocked = ch.id <= stats.totalUnlocked;
+                const chUnlocked = (idx + 1) <= stats.totalUnlocked;
                 const chProg = chapterProgresses[ch.id] || { materiDone: false, dhongengDone: false, lkpdScore: null, gameDone: false };
                 
                 const bannerColors = [
@@ -721,7 +715,7 @@ export default function Home() {
                     
                     {/* Chapter Header Banner */}
                     <div className="chapter-banner-sawunggaling" style={{ marginBottom: '0px' }}>
-                      <div className="chapter-header-num" style={{ color: 'rgba(255, 248, 224, 0.7)', fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Bab {ch.id} — Lakon Sawunggaling</div>
+                      <div className="chapter-header-num" style={{ color: 'rgba(255, 248, 224, 0.7)', fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Bab {idx + 1} — Lakon Sawunggaling</div>
                       <div className="chapter-header-title" style={{ color: '#FFF8E0', fontSize: '22px', fontWeight: '900', lineHeight: '1.2' }}>{ch.title}</div>
                       {!chUnlocked && (
                         <span style={{ fontSize: '12px', background: 'rgba(0,0,0,0.3)', padding: '4px 8px', borderRadius: '6px', marginTop: '6px', display: 'inline-block', fontWeight: '800', color: '#FFF8E0' }}>

@@ -239,6 +239,8 @@ export const updateCustomChapter = actions.updateCustomChapter;
 export const deleteCustomChapter = actions.deleteCustomChapter;
 export const upsertBuiltinOverride = actions.upsertBuiltinOverride;
 export const getLeaderboard = actions.getLeaderboard;
+export const getUraianSubmissions = actions.getUraianSubmissions;
+export const gradeUraian = actions.gradeUraian;
 
 export const refillHearts = async () => {
   const code = getUniqueCode();

@@ -32,7 +32,7 @@ function ChapterDetailInner({ params }: PageProps) {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [showRegister, setShowRegister] = useState(false);
   const [progress, setProgress] = useState({ materiDone: false, dhongengDone: false, lkpdScore: null as number | null, gameDone: false });
-  const [activeStep, setActiveStep] = useState<1 | 2 | 3 | 4>(1);
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   
   // Animation states
   const [shakeHearts, setShakeHearts] = useState(false);
@@ -55,6 +55,7 @@ function ChapterDetailInner({ params }: PageProps) {
   const [currentMatches, setCurrentMatches] = useState<{ [left: string]: string }>({}); 
   const [lkpdSubmitted, setLkpdSubmitted] = useState(false);
   const [lkpdCalculatedScore, setLkpdCalculatedScore] = useState<number | null>(null);
+  const [lkpdUraianSubmitted, setLkpdUraianSubmitted] = useState(false);
 
   const loadProgress = useCallback(async () => {
     const { profile: currentProfile, progress: currentProg } = await getChapterInitData(chapterId);
@@ -311,46 +312,30 @@ function ChapterDetailInner({ params }: PageProps) {
     }
   };
 
-  const submitLKPD = async () => {
+  const config = chapter?.mapConfig || { materi: true, dhongeng: true, lkpdPilgan: true, lkpdUraian: false, game: true };
+
+  const submitLKPDPilgan = async () => {
     if (lkpdSubmitted) return;
 
     let correctCount = 0;
     let wrongCount = 0;
-    const questions = chapter.lkpd.questions;
+    const questions = chapter.lkpd.questions.filter(q => q.type === 'multiple-choice');
+
+    if (questions.length === 0) {
+      setLkpdCalculatedScore(100);
+      setLkpdSubmitted(true);
+      setActiveStep(config.lkpdUraian ? 5 : 4);
+      return;
+    }
 
     questions.forEach(q => {
-      if (q.type === 'multiple-choice') {
-        if (answers[q.id] === q.correctAnswer) {
-          correctCount++;
-        } else {
-          wrongCount++;
-        }
-      } else if (q.type === 'text') {
-        const studentAns = (answers[q.id] || '').trim().toLowerCase();
-        const correctAns = (q.correctAnswer as string).trim().toLowerCase();
-        if (studentAns === correctAns || (correctAns.includes(studentAns) && studentAns.length > 3)) {
-          correctCount++;
-        } else {
-          wrongCount++;
-        }
-      } else if (q.type === 'matching') {
-        const requiredPairs = q.correctAnswer as string[];
-        let matchCorrect = true;
-        requiredPairs.forEach(pairStr => {
-          const [left, right] = pairStr.split(':');
-          if (currentMatches[left] !== right) {
-            matchCorrect = false;
-          }
-        });
-        if (matchCorrect) {
-          correctCount++;
-        } else {
-          wrongCount++;
-        }
+      if (answers[q.id] === q.correctAnswer) {
+        correctCount++;
+      } else {
+        wrongCount++;
       }
     });
 
-    // Heart deduction mapping
     if (wrongCount > 0) {
       playErrorChime();
       setShakeHearts(true);
@@ -372,8 +357,42 @@ function ChapterDetailInner({ params }: PageProps) {
       await loadProgress();
     }
     
-    alert(`E-LKPD kasubmit! Bener: ${correctCount}, Salah: ${wrongCount}, Biji: ${finalScore}`);
-    setActiveStep(4);
+    alert(`LKPD Pilihan Ganda kasubmit! Biji: ${finalScore}`);
+    
+    // Move to next available step
+    if (config.lkpdUraian) {
+      setActiveStep(5);
+    } else if (config.game) {
+      setActiveStep(4);
+    } else {
+      handleCompleteChapter();
+    }
+  };
+
+  const submitLKPDUraian = async () => {
+    if (lkpdUraianSubmitted) return;
+    
+    // Gather answers
+    const uraianAnswers = chapter.lkpd.questions
+      .filter(q => q.type === 'text')
+      .map(q => ({
+        question: q.question,
+        answer: answers[q.id] || ''
+      }));
+
+    // For now, we simulate saving the Uraian since DB schema isn't pushed yet
+    console.log("Simpan Jawaban Uraian:", uraianAnswers);
+    localStorage.setItem(`uraian_${profile?.uniqueCode}_${chapterId}`, JSON.stringify(uraianAnswers));
+    
+    playGongResonance();
+    setLkpdUraianSubmitted(true);
+    alert('Wangsulan Uraian wis kasubmit lan nunggu dikoreksi Guru!');
+
+    if (config.game) {
+      setActiveStep(4);
+    } else {
+      handleCompleteChapter();
+    }
   };
 
   const handleCompleteChapter = async () => {
@@ -394,12 +413,12 @@ function ChapterDetailInner({ params }: PageProps) {
     (progress.lkpdScore !== null ? 25 : 0) + 
     (progress.gameDone ? 25 : 0));
 
-  const stepsList = [
-    { step: 1, label: 'Kitab Kawruh 📜', locked: false },
-    { step: 2, label: 'Lelakon Wayang 🎭', locked: isDongengLocked },
-    { step: 3, label: 'Pendadaran Basa ⚔️', locked: isLkpdLocked },
-    { step: 4, label: 'Kridha Dolanan 🎡', locked: isGameLocked }
-  ];
+  const stepsList = [];
+  if (config.materi) stepsList.push({ step: 1, label: 'Kitab Kawruh 📜', locked: false });
+  if (config.dhongeng) stepsList.push({ step: 2, label: 'Lelakon Wayang 🎭', locked: isDongengLocked });
+  if (config.lkpdPilgan) stepsList.push({ step: 3, label: 'Pendadaran Pilgan ⚔️', locked: isLkpdLocked });
+  if (config.lkpdUraian) stepsList.push({ step: 5, label: 'Pendadaran Uraian ✍️', locked: isLkpdLocked });
+  if (config.game) stepsList.push({ step: 4, label: 'Kridha Dolanan 🎡', locked: isGameLocked });
 
   return (
     <div className="app-layout">
@@ -545,65 +564,47 @@ function ChapterDetailInner({ params }: PageProps) {
                     </span>
                   ))}
 
-                  {/* Panel 1 */}
-                  <div className="story-card-panel">
-                    <div className="wayang-art-container" style={{ background: 'linear-gradient(to bottom, #1E293B, #0F172A)' }}>
-                      <svg viewBox="0 0 400 200" width="100%" height="100%">
-                        <path d="M-20 200 Q20 80 40 200 Z" fill="#090d16" />
-                        <path d="M30 200 Q70 60 110 200 Z" fill="#0c1322" />
-                        <path d="M290 200 Q330 50 370 200 Z" fill="#090d16" />
-                        <path d="M340 200 Q380 90 420 200 Z" fill="#070a10" />
-                        <path d="M50 0 C80 40, 120 40, 160 0 C180 30, 240 30, 260 0 Z" fill="#05070a" opacity="0.8" />
-                        <g transform="translate(180, 110) scale(0.4)">
-                          <path d="M60 200 C60 140, 80 80, 100 80 C120 80, 140 140, 140 200 Z" fill="#D97706" />
-                          <path d="M10 200 C10 160, 25 120, 40 120 C55 120, 70 160, 70 200 Z" fill="#FBBF24" />
-                        </g>
-                      </svg>
-                    </div>
-                    <div className="story-dialogue-box">
-                      <span className="story-speaker-tag">Narasi</span>
-                      <p style={{ fontSize: '15px', color: '#374151', lineHeight: '1.6' }}>
-                        &quot;Di tepi hutan Surabaya kuno, Joko Berek kecil belum tahu nasibnya...&quot;
-                      </p>
-                    </div>
-                  </div>
+                  {/* Dynamic pages from chapter data */}
+                  {chapter.dhongeng.pages.map((page, pageIdx) => {
+                    // Pick a rotating background color palette
+                    const bgPalettes = [
+                      'linear-gradient(to bottom, #1E293B, #0F172A)',
+                      'linear-gradient(to bottom, #7C2D12, #451A03)',
+                      'linear-gradient(to bottom, #1E1B4B, #311042)',
+                      'linear-gradient(to bottom, #065F46, #064E3B)',
+                      'linear-gradient(to bottom, #991B1B, #7F1D1D)',
+                    ];
+                    const bg = bgPalettes[pageIdx % bgPalettes.length];
 
-                  {/* Panel 2 */}
-                  <div className="story-card-panel">
-                    <div className="wayang-art-container" style={{ background: 'linear-gradient(to bottom, #7C2D12, #451A03)' }}>
-                      <svg viewBox="0 0 400 200" width="100%" height="100%">
-                        <circle cx="200" cy="100" r="80" fill="#EA580C" opacity="0.3" />
-                        <path d="M150 200 C150 140, 170 100, 200 100 C230 100, 250 140, 250 200 Z" fill="#1e0a00" />
-                        <path d="M200 100 C185 85, 170 85, 170 70 C170 50, 200 40, 200 20 Z" fill="#F59E0B" />
-                        <circle cx="185" cy="100" r="3.5" fill="#FFF" />
-                      </svg>
-                    </div>
-                    <div className="story-dialogue-box">
-                      <span className="story-speaker-tag">Joko Berek</span>
-                      <p style={{ fontSize: '15px', color: '#374151', lineHeight: '1.6', fontWeight: '700', fontStyle: 'italic' }}>
-                        &quot;Ibu, sapa bapakku? Kenapa aku ora duwe bapak?&quot;
-                      </p>
-                    </div>
-                  </div>
+                    // Parse speaker from text. If text starts with "speaker: text" or just plain narration.
+                    // We look for lines that indicate speaker (e.g. "Dialog 2 — ..." or speaker-tagged lines)
+                    const textContent = page.text;
+                    
+                    // Extract speaker name: check if text has pattern "CharacterName\n" at start or "Dialog X — CharacterName"
+                    let speakerName = 'Narasi';
+                    let storyText = textContent;
+                    
+                    // Check for "📜 Dialog X — SpeakerName" or similar prefix
+                    const dialogMatch = textContent.match(/^[📜🎭💬]?\s*Dialog\s+\d+\s*[—–-]+\s*(.+)\n/i);
+                    if (dialogMatch) {
+                      speakerName = dialogMatch[1].trim();
+                      storyText = textContent.replace(dialogMatch[0], '').trim();
+                    }
 
-                  {/* Panel 3 */}
-                  <div className="story-card-panel">
-                    <div className="wayang-art-container" style={{ background: 'linear-gradient(to bottom, #1E1B4B, #311042)' }}>
-                      <div className="wayang-sun-aura" style={{ left: '140px', top: '40px' }}></div>
-                      <svg viewBox="0 0 400 200" width="100%" height="100%">
-                        <g transform="translate(130, 40) scale(0.6)">
-                          <path d="M100 20 C60 90, 50 160, 50 200 L150 200 C150 160, 140 90, 100 20 Z" fill="#D97706" opacity="0.2" />
-                          <path d="M100 50 C110 30, 130 35, 130 50 C130 70, 90 90, 100 120 C80 140, 80 180, 100 220 Z" fill="#FFD700" />
-                        </g>
-                      </svg>
-                    </div>
-                    <div className="story-dialogue-box">
-                      <span className="story-speaker-tag">Nyi Bungkus</span>
-                      <p style={{ fontSize: '15px', color: '#374151', lineHeight: '1.6', fontWeight: '700', fontStyle: 'italic' }}>
-                        &quot;Bapakmu iku Adipati Jayengrono, anakku...&quot;
-                      </p>
-                    </div>
-                  </div>
+                    return (
+                      <div key={pageIdx} className="story-card-panel">
+                        <div className="wayang-art-container" style={{ background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '140px' }}>
+                          <div style={{ fontSize: '64px', opacity: 0.4 }}>📖</div>
+                        </div>
+                        <div className="story-dialogue-box">
+                          <span className="story-speaker-tag">{speakerName}</span>
+                          <p style={{ fontSize: '15px', color: '#374151', lineHeight: '1.7', whiteSpace: 'pre-line' }}>
+                            {storyText}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
 
                   {/* INTERRUPT MINI-GAME / GATED QUESTION */}
                   <div className="duo-card" style={{ padding: '24px', border: '3px solid var(--color-orange)', background: '#FFFDF9' }}>
@@ -662,46 +663,6 @@ function ChapterDetailInner({ params }: PageProps) {
                     )}
                   </div>
 
-                  {/* Panel 4 (Gated) */}
-                  <div className={`story-card-panel ${!storyAnswered ? 'story-card-locked' : ''}`}>
-                    <div className="wayang-art-container" style={{ background: 'linear-gradient(to bottom, #065F46, #064E3B)' }}>
-                      <svg viewBox="0 0 400 200" width="100%" height="100%">
-                        <circle cx="200" cy="100" r="70" fill="#34D399" opacity="0.25" />
-                        <g transform="translate(170, 30) scale(0.7)">
-                          <line x1="30" y1="0" x2="30" y2="240" stroke="#FBBF24" strokeWidth="4" />
-                          <path d="M25 0 L30 -20 L35 0 Z" fill="#FBBF24" />
-                          <path d="M60 70 C70 40, 90 40, 90 70 C90 100, 70 120, 80 180 L50 240 L35 240 Z" fill="#FCD34D" />
-                        </g>
-                      </svg>
-                    </div>
-                    <div className="story-dialogue-box">
-                      <span className="story-speaker-tag">Narasi</span>
-                      <p style={{ fontSize: '15px', color: '#374151', lineHeight: '1.6' }}>
-                        &quot;Tahun berlalu, Joko Berek tumbuh menjadi pemuda gagah...&quot;
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Panel 5 (Gated) */}
-                  <div className={`story-card-panel ${!storyAnswered ? 'story-card-locked' : ''}`}>
-                    <div className="wayang-art-container" style={{ background: 'linear-gradient(to bottom, #991B1B, #7F1D1D)' }}>
-                      <div className="wayang-sun-aura" style={{ left: '130px', top: '30px' }}></div>
-                      <svg viewBox="0 0 400 200" width="100%" height="100%">
-                        <path d="M120 200 L120 120 L180 80 L220 80 L280 120 L280 200 Z" fill="#3F0D0D" />
-                        <g transform="translate(170, 20) scale(0.75)">
-                          <path d="M80 80 C90 50, 110 50, 110 80 C110 110, 90 130, 100 200 L70 240 Z" fill="#FDE047" />
-                          <path d="M40 70 L20 10 L45 20 Z" fill="#FDE047" />
-                        </g>
-                      </svg>
-                    </div>
-                    <div className="story-dialogue-box">
-                      <span className="story-speaker-tag">Sawunggaling</span>
-                      <p style={{ fontSize: '15px', color: '#374151', lineHeight: '1.6', fontWeight: '800', fontStyle: 'italic' }}>
-                        &quot;Aku bakal mbuktekaken yen aku layak dadi putra Adipati!&quot;
-                      </p>
-                    </div>
-                  </div>
-
                   {/* Complete story button */}
                   {storyAnswered && (
                     <button 
@@ -715,21 +676,24 @@ function ChapterDetailInner({ params }: PageProps) {
                 </div>
               )}
 
-              {/* STEP 3: E-LKPD */}
+
+
+
+              {/* STEP 3: E-LKPD PILGAN */}
               {activeStep === 3 && (
                 <div className="duo-card card-green" style={{ padding: '32px' }}>
-                  <h2 style={{ fontSize: '24px', color: '#1F2937', fontWeight: '800', marginBottom: '6px' }}>{chapter.lkpd.title}</h2>
+                  <h2 style={{ fontSize: '24px', color: '#1F2937', fontWeight: '800', marginBottom: '6px' }}>{chapter.lkpd.title} (Pilihan Ganda)</h2>
                   <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '14px' }}>
-                    Pilih utawa isi wangsulan sing paling bener. Wangsulan salah kelong nyawa!
+                    Pilih wangsulan sing paling bener. Wangsulan salah kelong nyawa!
                   </p>
 
-                  {chapter.lkpd.questions.map((q, idx) => (
+                  {chapter.lkpd.questions.filter(q => q.type === 'multiple-choice').map((q, idx) => (
                     <div key={q.id} style={{ marginBottom: '24px', paddingBottom: '20px', borderBottom: '2px solid var(--border-light)' }}>
                       <p style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px', color: '#1F2937' }}>
                         <strong>{idx + 1}.</strong> {q.question}
                       </p>
 
-                      {q.type === 'multiple-choice' && q.options && (
+                      {q.options && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           {q.options.map(opt => {
                             const isSelected = answers[q.id] === opt;
@@ -770,104 +734,76 @@ function ChapterDetailInner({ params }: PageProps) {
                           })}
                         </div>
                       )}
-
-                      {q.type === 'text' && (
-                        <input 
-                          type="text" 
-                          placeholder="Tulis wangsulanmu ing kene..."
-                          value={answers[q.id] || ''}
-                          onChange={(e) => handleTextChange(q.id, e.target.value)}
-                          disabled={lkpdSubmitted}
-                          style={{ 
-                            width: '100%', 
-                            padding: '14px', 
-                            borderRadius: '12px', 
-                            border: '2px solid var(--border-light)', 
-                            outline: 'none', 
-                            fontSize: '15px',
-                            fontWeight: '600'
-                          }}
-                        />
-                      )}
-
-                      {q.type === 'matching' && q.matchingPairs && (
-                        <div style={{ marginTop: '12px' }}>
-                          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: '700' }}>
-                            Hubungake tembung ing ngisor iki:
-                          </p>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                              {q.matchingPairs.map(pair => {
-                                const isSelected = matchingSelections.left === pair.left;
-                                const matchedRight = currentMatches[pair.left];
-                                return (
-                                  <div 
-                                    key={pair.left} 
-                                    onClick={() => handleMatchingClickLeft(pair.left)}
-                                    style={{ 
-                                      padding: '12px', 
-                                      borderRadius: '12px', 
-                                      border: '2px solid',
-                                      borderColor: isSelected ? 'var(--color-purple)' : matchedRight ? '#E5E7EB' : '#CBD5E1',
-                                      background: isSelected ? '#FAF5FF' : matchedRight ? '#F3F4F6' : '#FFFFFF',
-                                      color: matchedRight ? '#9CA3AF' : '#1F2937',
-                                      fontWeight: '700',
-                                      cursor: 'pointer',
-                                      textAlign: 'center'
-                                    }}
-                                  >
-                                    {pair.left} {matchedRight && `➔ ${matchedRight}`}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                              {q.matchingPairs.map(pair => {
-                                const isMatched = Object.values(currentMatches).includes(pair.right);
-                                return (
-                                  <button 
-                                    key={pair.right} 
-                                    onClick={() => handleMatchingClickRight(pair.right)}
-                                    disabled={isMatched || lkpdSubmitted}
-                                    className="btn-duo btn-duo-secondary"
-                                    style={{ 
-                                      padding: '12px', 
-                                      fontSize: '14px', 
-                                      borderBottomWidth: '3px',
-                                      opacity: isMatched ? 0.5 : 1,
-                                      background: isMatched ? '#F3F4F6' : '#FFFFFF'
-                                    }}
-                                  >
-                                    {pair.right}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   ))}
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px', marginTop: '20px' }}>
-                    {lkpdSubmitted ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <span style={{ color: 'var(--color-green-dark)', fontWeight: '800', fontSize: '18px' }}>
-                          Biji LKPD: {lkpdCalculatedScore}/100
-                        </span>
-                        <button className="btn-duo btn-duo-primary" style={{ width: 'auto' }} onClick={() => setActiveStep(4)}>
-                          Mulai Game Aksara ➔
-                        </button>
-                      </div>
-                    ) : (
-                      <button className="btn-duo btn-duo-primary" style={{ width: 'auto' }} onClick={submitLKPD}>
-                        Kirim Wangsulan ✓
-                      </button>
-                    )}
+                  <div style={{ marginTop: '32px' }}>
+                    <button 
+                      className="btn-duo btn-duo-green" 
+                      style={{ width: '100%', padding: '16px', fontSize: '18px' }}
+                      onClick={submitLKPDPilgan}
+                      disabled={lkpdSubmitted}
+                    >
+                      {lkpdSubmitted ? `Biji: ${lkpdCalculatedScore}/100 Lanjut ➔` : 'Kumpulake Wangsulan Pilgan'}
+                    </button>
                   </div>
                 </div>
               )}
 
+              {/* STEP 5: E-LKPD URAIAN */}
+              {activeStep === 5 && (
+                <div className="duo-card" style={{ padding: '32px', borderColor: '#F59E0B' }}>
+                  <h2 style={{ fontSize: '24px', color: '#1F2937', fontWeight: '800', marginBottom: '6px' }}>{chapter.lkpd.title} (Uraian)</h2>
+                  <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '14px' }}>
+                    Isi wangsulanmu nganggo tembung-tembung kang trep. Wangsulan iki bakal dikoreksi karo Gurumu.
+                  </p>
+
+                  {chapter.lkpd.questions.filter(q => q.type === 'text').map((q, idx) => (
+                    <div key={q.id} style={{ marginBottom: '24px', paddingBottom: '20px', borderBottom: '2px solid var(--border-light)' }}>
+                      <p style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px', color: '#1F2937' }}>
+                        <strong>{idx + 1}.</strong> {q.question}
+                      </p>
+                      <textarea 
+                        placeholder="Tulis wangsulanmu ing kene..."
+                        value={answers[q.id] || ''}
+                        onChange={(e) => handleTextChange(q.id, e.target.value)}
+                        disabled={lkpdUraianSubmitted}
+                        style={{ 
+                          width: '100%', 
+                          padding: '14px', 
+                          borderRadius: '12px', 
+                          border: '2px solid var(--border-light)', 
+                          outline: 'none', 
+                          fontSize: '15px',
+                          fontWeight: '600',
+                          minHeight: '100px',
+                          resize: 'vertical',
+                          fontFamily: 'inherit'
+                        }}
+                      />
+                    </div>
+                  ))}
+
+                  <div style={{ marginTop: '32px' }}>
+                    <button 
+                      className="btn-duo" 
+                      style={{ 
+                        width: '100%', 
+                        padding: '16px', 
+                        fontSize: '18px',
+                        background: lkpdUraianSubmitted ? '#F3F4F6' : '#F59E0B',
+                        color: lkpdUraianSubmitted ? '#9CA3AF' : '#FFF',
+                        borderColor: lkpdUraianSubmitted ? '#E5E7EB' : '#D97706',
+                        borderBottomWidth: '4px'
+                      }}
+                      onClick={submitLKPDUraian}
+                      disabled={lkpdUraianSubmitted}
+                    >
+                      {lkpdUraianSubmitted ? 'Wis Dikumpulake! Lanjut ➔' : 'Kumpulake Wangsulan Uraian'}
+                    </button>
+                  </div>
+                </div>
+              )}
               {/* STEP 4: KUIS/GAME */}
               {activeStep === 4 && (
                 <div className="duo-card card-purple" style={{ padding: '32px' }}>

@@ -331,10 +331,20 @@ p, li, span, input, textarea, select {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  position: sticky;
+  position: fixed;
   top: 0;
+  right: 0;
+  bottom: 0;
+  width: 380px;
   height: 100vh;
   overflow-y: auto;
+  z-index: 90;
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.right-sidebar::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
 }
 
 /* ═══════════════════════════════════════════════════════════ */
@@ -2539,11 +2549,15 @@ p, li, span, input, textarea, select {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  position: sticky;
+  position: fixed;
   top: 0;
+  right: 0;
+  bottom: 0;
+  width: 380px;
   height: 100vh;
   overflow-y: auto;
   box-shadow: inset 3px 0 12px rgba(74, 30, 8, 0.06);
+  z-index: 90;
 }
 
 /* ---- Gunungan Wayang SVG animasi sempurna ---- */

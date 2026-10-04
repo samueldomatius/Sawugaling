@@ -7,7 +7,7 @@ import { playSaronChime, playGongResonance, playErrorChime } from '@/lib/audio';
 interface AksaraGameProps {
   chapterId: number;
   chapterTitle: string;
-  gameType?: 'aksara-drag' | 'word-guess' | 'picture-quiz' | 'memory-match' | 'bubble-pop' | 'speed-run'; 
+  gameType?: 'aksara-drag' | 'word-guess' | 'picture-quiz' | 'memory-match' | 'bubble-pop' | 'speed-run' | 'line-match'; 
   config: any;
   onComplete: () => void;
 }
@@ -36,7 +36,8 @@ interface SpeedQuestion {
 }
 
 export default function AksaraGame({ chapterId, chapterTitle, gameType, config, onComplete }: AksaraGameProps) {
-  const activeType = gameType || (chapterId === 2 ? 'word-guess' : chapterId === 3 ? 'picture-quiz' : 'aksara-drag');
+  // Always use gameType from props (set from chapter.game.type in DB). Only fallback if truly undefined.
+  const activeType = gameType || 'aksara-drag';
 
   const [success, setSuccess] = useState(false);
   const [scoreLogged, setScoreLogged] = useState(false);
@@ -82,6 +83,14 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
     setSpeedTimer(100);
   }, [config?.pool]);
 
+  // 7. LINE MATCH STATES
+  const [lmPairsLeft, setLmPairsLeft] = useState<{ id: string, text: string }[]>([]);
+  const [lmPairsRight, setLmPairsRight] = useState<{ id: string, text: string }[]>([]);
+  const [lmSelectedLeft, setLmSelectedLeft] = useState<string | null>(null);
+  const [lmMatchedPairs, setLmMatchedPairs] = useState<{leftId: string, rightId: string}[]>([]);
+  const lmContainerRef = React.useRef<HTMLDivElement>(null);
+  const [lmLines, setLmLines] = useState<{x1:number, y1:number, x2:number, y2:number}[]>([]);
+
   // Initializing game states
   useEffect(() => {
     setSuccess(false);
@@ -91,6 +100,14 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
       const shuffled = [...config.pairs].sort(() => Math.random() - 0.5);
       setAvailableItems(shuffled);
       setDragMatches({});
+    } else if (activeType === 'line-match' && config?.pairs) {
+      const pairsLeft = config.pairs.map((p: any, i: number) => ({ id: `pair-${i}`, text: p.aksara || p.left }));
+      const pairsRight = config.pairs.map((p: any, i: number) => ({ id: `pair-${i}`, text: p.latin || p.right }));
+      setLmPairsLeft([...pairsLeft].sort(() => Math.random() - 0.5));
+      setLmPairsRight([...pairsRight].sort(() => Math.random() - 0.5));
+      setLmSelectedLeft(null);
+      setLmMatchedPairs([]);
+      setLmLines([]);
     } else if (activeType === 'word-guess') {
       const rawWord = (config?.correctWord || config?.words?.[0]?.word || 'JAWA').toUpperCase();
       const rawClue = config?.clue || config?.words?.[0]?.hint || 'Aksara Jawa';
@@ -186,6 +203,70 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
         console.error("Failed to complete game batch:", err);
       }
       setScoreLogged(true);
+    }
+  };
+
+  // ----------------------------------------------------
+  // MODE 7: LINE MATCH HANDLERS
+  // ----------------------------------------------------
+  const updateLmLines = useCallback(() => {
+    if (!lmContainerRef.current) return;
+    const containerRect = lmContainerRef.current.getBoundingClientRect();
+    const newLines = lmMatchedPairs.map(match => {
+      const elLeft = document.getElementById(`lm-left-${match.leftId}`);
+      const elRight = document.getElementById(`lm-right-${match.rightId}`);
+      if (elLeft && elRight) {
+        const leftRect = elLeft.getBoundingClientRect();
+        const rightRect = elRight.getBoundingClientRect();
+        return {
+          x1: leftRect.right - containerRect.left,
+          y1: leftRect.top + leftRect.height / 2 - containerRect.top,
+          x2: rightRect.left - containerRect.left,
+          y2: rightRect.top + rightRect.height / 2 - containerRect.top,
+        };
+      }
+      return null;
+    }).filter(Boolean) as any;
+    setLmLines(newLines);
+  }, [lmMatchedPairs]);
+
+  useEffect(() => {
+    if (activeType === 'line-match') {
+      window.addEventListener('resize', updateLmLines);
+      updateLmLines(); // Initial draw if things re-render
+      return () => window.removeEventListener('resize', updateLmLines);
+    }
+  }, [updateLmLines, activeType]);
+
+  const handleLmLeftClick = (id: string) => {
+    if (lmMatchedPairs.some(m => m.leftId === id)) return;
+    playSaronChime();
+    setLmSelectedLeft(id === lmSelectedLeft ? null : id); // Toggle selection
+  };
+
+  const handleLmRightClick = (rightId: string) => {
+    if (!lmSelectedLeft) return;
+    if (lmMatchedPairs.some(m => m.rightId === rightId)) return;
+    
+    // Check if they match
+    if (lmSelectedLeft === rightId) {
+      // It's a match!
+      playSaronChime();
+      const newMatches = [...lmMatchedPairs, { leftId: lmSelectedLeft, rightId }];
+      setLmMatchedPairs(newMatches);
+      setLmSelectedLeft(null);
+      
+      // We need a small timeout for the DOM to update to draw lines, wait, updateLmLines is driven by effect!
+      setTimeout(() => updateLmLines(), 50);
+
+      if (newMatches.length === (config?.pairs?.length || 0)) {
+        handleSuccessTrigger();
+      }
+    } else {
+      // Wrong match
+      playErrorChime();
+      deductHeart().then(() => window.dispatchEvent(new Event('profileUpdated')));
+      setLmSelectedLeft(null); // Clear selection
     }
   };
 
@@ -368,6 +449,14 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
     } else if (activeType === 'word-guess' && config?.correctWord) {
       setGuessedWord(Array(config.correctWord.length).fill(''));
       setCurrentGuessIndex(0);
+    } else if (activeType === 'line-match' && config?.pairs) {
+      const pairsLeft = config.pairs.map((p: any, i: number) => ({ id: `pair-${i}`, text: p.aksara || p.left }));
+      const pairsRight = config.pairs.map((p: any, i: number) => ({ id: `pair-${i}`, text: p.latin || p.right }));
+      setLmPairsLeft([...pairsLeft].sort(() => Math.random() - 0.5));
+      setLmPairsRight([...pairsRight].sort(() => Math.random() - 0.5));
+      setLmSelectedLeft(null);
+      setLmMatchedPairs([]);
+      setLmLines([]);
     } else if (activeType === 'picture-quiz') {
       setSelectedPictureOption(null);
     } else if (activeType === 'memory-match' && config?.pairs) {
@@ -749,6 +838,84 @@ export default function AksaraGame({ chapterId, chapterTitle, gameType, config, 
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* ==================================================== */}
+          {/* MODE 7: JODOH-JODHOAKEN (LINE MATCH) */}
+          {/* ==================================================== */}
+          {activeType === 'line-match' && (
+            <div ref={lmContainerRef} style={{ position: 'relative', width: '100%', minHeight: '300px', display: 'flex', justifyContent: 'space-between', gap: '32px' }}>
+              
+              {/* SVG Canvas for Lines */}
+              <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
+                {lmLines.map((line, idx) => (
+                  <line 
+                    key={idx}
+                    x1={line.x1} y1={line.y1} 
+                    x2={line.x2} y2={line.y2}
+                    stroke="#10B981" 
+                    strokeWidth="4" 
+                    strokeLinecap="round"
+                  />
+                ))}
+              </svg>
+
+              {/* LEFT SIDE (Ngoko / Aksara) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, zIndex: 2 }}>
+                {lmPairsLeft.map((item) => {
+                  const isSelected = lmSelectedLeft === item.id;
+                  const isMatched = lmMatchedPairs.some(m => m.leftId === item.id);
+                  return (
+                    <button
+                      key={`left-${item.id}`}
+                      id={`lm-left-${item.id}`}
+                      onClick={() => handleLmLeftClick(item.id)}
+                      disabled={isMatched}
+                      className="btn-duo btn-duo-secondary"
+                      style={{
+                        padding: '16px',
+                        fontSize: '18px',
+                        fontWeight: '800',
+                        opacity: isMatched ? 0.4 : 1,
+                        background: isSelected ? '#FEF3C7' : '#F8FAFC',
+                        borderColor: isSelected ? '#F59E0B' : '#E2E8F0',
+                        color: isSelected ? '#92400E' : '#333'
+                      }}
+                    >
+                      {item.text}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* RIGHT SIDE (Krama / Latin) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, zIndex: 2 }}>
+                {lmPairsRight.map((item) => {
+                  const isMatched = lmMatchedPairs.some(m => m.rightId === item.id);
+                  return (
+                    <button
+                      key={`right-${item.id}`}
+                      id={`lm-right-${item.id}`}
+                      onClick={() => handleLmRightClick(item.id)}
+                      disabled={isMatched || !lmSelectedLeft}
+                      className="btn-duo"
+                      style={{
+                        padding: '16px',
+                        fontSize: '18px',
+                        fontWeight: '800',
+                        opacity: isMatched ? 0.4 : (lmSelectedLeft ? 1 : 0.7),
+                        background: '#FFFFFF',
+                        borderColor: '#E2E8F0',
+                        color: '#333'
+                      }}
+                    >
+                      {item.text}
+                    </button>
+                  );
+                })}
+              </div>
+
             </div>
           )}
 

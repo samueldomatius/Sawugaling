@@ -338,6 +338,50 @@ export async function getVisitorLogs() {
   }));
 }
 
+export async function getUraianSubmissions() {
+  const allProgress = await prisma.chapterProgress.findMany({
+    include: { user: true }
+  });
+  const submissions = allProgress.filter(p => p.lkpdUraianAnswers != null);
+  return submissions.map(s => ({
+    id: s.id,
+    studentName: s.user.name,
+    studentClass: s.user.className,
+    chapterId: s.chapterId,
+    answers: s.lkpdUraianAnswers,
+    score: s.lkpdUraianScore,
+  }));
+}
+
+export async function gradeUraian(progressId: string, score: number, chapterTitle: string) {
+  const progress = await prisma.chapterProgress.update({
+    where: { id: progressId },
+    data: { lkpdUraianScore: score },
+    include: { user: true }
+  });
+  
+  // Create score log for Uraian
+  await prisma.scoreLog.create({
+    data: {
+      userId: progress.user.id,
+      chapterId: progress.chapterId,
+      chapterTitle: chapterTitle + " (Uraian)",
+      activityType: 'LKPD_URAIAN',
+      score,
+      maxScore: 100
+    }
+  });
+  
+  // Add XP based on score
+  const xpReward = Math.floor(score / 2);
+  await prisma.user.update({
+    where: { id: progress.user.id },
+    data: { xp: { increment: xpReward } }
+  });
+  
+  return { success: true };
+}
+
 export async function refillHearts(uniqueCode: string) {
   try {
     await prisma.user.update({

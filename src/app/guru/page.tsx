@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   getScoreLogs, getVisitorLogs, ScoreLog, VisitorLog, downloadCSV,
   getChaptersList, addCustomChapter, updateCustomChapter, deleteCustomChapter,
-  upsertBuiltinOverride
+  upsertBuiltinOverride, isThursdayMode, setSimulatedThursday,
+  getUraianSubmissions, gradeUraian
 } from '@/lib/db';
 import { loginTeacher, logoutTeacher, isTeacherLoggedIn } from '@/lib/teacher-auth';
 import { Chapter, Question, DhongengPage, AccordionSection } from '@/lib/chaptersData';
@@ -12,7 +13,7 @@ import { Chapter, Question, DhongengPage, AccordionSection } from '@/lib/chapter
 // ──────────────────────────────────────────────
 // TYPES
 // ──────────────────────────────────────────────
-type GameType = 'aksara-drag' | 'word-guess' | 'picture-quiz' | 'memory-match' | 'bubble-pop' | 'speed-run';
+type GameType = 'aksara-drag' | 'word-guess' | 'picture-quiz' | 'memory-match' | 'bubble-pop' | 'speed-run' | 'line-match';
 
 interface GameConfig {
   type: GameType;
@@ -21,14 +22,16 @@ interface GameConfig {
   config: any;
 }
 
-interface LkpdMcQuestion { question: string; optA: string; optB: string; optC: string; correct: string; }
+interface LkpdMcQuestion { question: string; optA: string; optB: string; optC: string; optD: string; correct: string; }
 interface LkpdTextQuestion { question: string; correct: string; }
 interface MateriSection { title: string; content: string; }
 interface DongengPage { text: string; prompt: string; }
 interface AksaraPair { aksara: string; latin: string; }
+interface LineMatchPair { left: string; right: string; }
 interface WordPair { word: string; hint: string; }
 
 const GAME_TYPES: { type: GameType; label: string; icon: string; desc: string }[] = [
+  { type: 'line-match',   label: 'Tarik Garis',   icon: '✏️', desc: 'Jodohkan item dengan menarik garis' },
   { type: 'aksara-drag',  label: 'Drag Aksara',   icon: '✍️', desc: 'Cocokkan aksara Jawa dengan latinnya' },
   { type: 'word-guess',   label: 'Tebak Kata',    icon: '🔤', desc: 'Susun huruf menjadi kata Jawa' },
   { type: 'picture-quiz', label: 'Kuis Gambar',   icon: '🖼️', desc: 'Jawab pertanyaan dari gambar' },
@@ -201,6 +204,13 @@ function ChapterForm({
   const [title, setTitle] = useState(initial?.title || '');
   const [desc, setDesc] = useState(initial?.description || '');
   const [icon, setIcon] = useState(initial?.icon || '📖');
+  const [mapConfig, setMapConfig] = useState(initial?.mapConfig || {
+    materi: true,
+    dhongeng: true,
+    lkpdPilgan: true,
+    lkpdUraian: true,
+    game: true
+  });
   const [materiTitle, setMateriTitle] = useState(initial?.materi?.title || '');
   const [materiSections, setMateriSections] = useState<MateriSection[]>(
     initial?.materi?.sections || [{ title: '', content: '' }]
@@ -220,11 +230,12 @@ function ChapterForm({
           optA: q.options?.[0] || '',
           optB: q.options?.[1] || '',
           optC: q.options?.[2] || '',
+          optD: q.options?.[3] || '',
           correct: q.correctAnswer as string,
         }));
       }
     }
-    return [{ question: '', optA: '', optB: '', optC: '', correct: '' }];
+    return [{ question: '', optA: '', optB: '', optC: '', optD: '', correct: 'A' }];
   });
 
   const [textQuestions, setTextQuestions] = useState<LkpdTextQuestion[]>(() => {
@@ -292,10 +303,19 @@ function ChapterForm({
   const [saving, setSaving] = useState(false);
   const [activeSection, setActiveSection] = useState<'info' | 'materi' | 'dongeng' | 'lkpd' | 'game'>('info');
 
-  const toggleGame = (type: GameType) => {
-    setSelectedGames(prev =>
-      prev.includes(type) ? prev.filter(g => g !== type) : [...prev, type]
-    );
+  const selectGame = (type: GameType) => {
+    // Single-select: selecting a different game type resets the relevant config states
+    if (type !== selectedGames[0]) {
+      // Reset all game-specific configs when switching game type
+      setAksaraPairs([{ aksara: '', latin: '' }]);
+      setWordPairs([{ word: '', hint: '' }]);
+      setPqImagePrompt('Traditional Javanese wayang, golden warm tones');
+      setPqImageLabel('Wayang Gunungan');
+      setPqOptA(''); setPqOptB(''); setPqOptC(''); setPqOptD('');
+      setPqCorrect('');
+      setBpDistractors('ꦲ, ꦤ, ꦕ, ꦫ, ꦱ');
+    }
+    setSelectedGames([type]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -314,11 +334,19 @@ function ChapterForm({
       const questions: Question[] = [];
       mcQuestions.forEach((q, i) => {
         if (q.question && q.correct) {
+          const opts = [q.optA, q.optB, q.optC, q.optD].filter(Boolean);
+          let correctText = '';
+          if (q.correct === 'A') correctText = q.optA;
+          else if (q.correct === 'B') correctText = q.optB;
+          else if (q.correct === 'C') correctText = q.optC;
+          else if (q.correct === 'D') correctText = q.optD;
+          else correctText = q.correct; // Fallback to raw text if somehow it wasn't A, B, C, or D
+          
           questions.push({
             id: `mc_${i}`, type: 'multiple-choice',
             question: q.question,
-            options: [q.optA, q.optB, q.optC].filter(Boolean),
-            correctAnswer: q.correct,
+            options: opts,
+            correctAnswer: correctText,
           });
         }
       });
@@ -402,6 +430,7 @@ function ChapterForm({
 
       const chapterData = {
         title, description: desc, icon,
+        mapConfig,
         materi: { title: materiTitle, sections: materiSections.filter(s => s.title || s.content) },
         dhongeng: {
           title: dongengTitle,
@@ -437,11 +466,11 @@ function ChapterForm({
     <div>
       {/* Section Nav */}
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '24px' }}>
-        {(['info','materi','dongeng','lkpd','game'] as const).map(s => (
-          <button key={s} style={sectionBtnStyle(s)} onClick={() => setActiveSection(s)} type="button">
-            { s === 'info' ? '📝 Info Dasar' : s === 'materi' ? '📚 Materi' : s === 'dongeng' ? '📖 Dongeng' : s === 'lkpd' ? '📋 LKPD' : '🎮 Gamifikasi' }
-          </button>
-        ))}
+        <button style={sectionBtnStyle('info')} onClick={() => setActiveSection('info')} type="button">📝 Info Dasar</button>
+        {mapConfig.materi && <button style={sectionBtnStyle('materi')} onClick={() => setActiveSection('materi')} type="button">📚 Materi</button>}
+        {mapConfig.dhongeng && <button style={sectionBtnStyle('dongeng')} onClick={() => setActiveSection('dongeng')} type="button">📖 Dongeng</button>}
+        {(mapConfig.lkpdPilgan || mapConfig.lkpdUraian) && <button style={sectionBtnStyle('lkpd')} onClick={() => setActiveSection('lkpd')} type="button">📋 LKPD</button>}
+        {mapConfig.game && <button style={sectionBtnStyle('game')} onClick={() => setActiveSection('game')} type="button">🎮 Gamifikasi</button>}
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -461,6 +490,34 @@ function ChapterForm({
             <div>
               <label style={labelStyle}>Deskripsi Singkat *</label>
               <textarea style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }} value={desc} onChange={e => setDesc(e.target.value)} placeholder="Deskripsi singkat tentang isi bab ini..." required />
+            </div>
+            
+            <div style={{ marginTop: '16px', padding: '16px', background: '#F8FAFC', borderRadius: '12px', border: '1.5px solid #E2E8F0' }}>
+              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', marginBottom: '12px' }}>🗺️ Pengaturan Peta Bab</h4>
+              <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '16px' }}>Centang langkah apa saja yang ingin ditampilkan di peta bab siswa.</p>
+              
+              <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>
+                  <input type="checkbox" checked={mapConfig.materi} onChange={e => setMapConfig((p: any) => ({ ...p, materi: e.target.checked }))} />
+                  📚 Materi
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>
+                  <input type="checkbox" checked={mapConfig.dhongeng} onChange={e => setMapConfig((p: any) => ({ ...p, dhongeng: e.target.checked }))} />
+                  📖 Dongeng
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>
+                  <input type="checkbox" checked={mapConfig.lkpdPilgan} onChange={e => setMapConfig((p: any) => ({ ...p, lkpdPilgan: e.target.checked }))} />
+                  📝 LKPD Pilihan Ganda
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>
+                  <input type="checkbox" checked={mapConfig.lkpdUraian} onChange={e => setMapConfig((p: any) => ({ ...p, lkpdUraian: e.target.checked }))} />
+                  ✍️ LKPD Uraian
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>
+                  <input type="checkbox" checked={mapConfig.game} onChange={e => setMapConfig((p: any) => ({ ...p, game: e.target.checked }))} />
+                  🎮 Gamifikasi
+                </label>
+              </div>
             </div>
           </div>
         )}
@@ -560,48 +617,73 @@ function ChapterForm({
               <input style={inputStyle} value={lkpdTitle} onChange={e => setLkpdTitle(e.target.value)} placeholder="Cth: Latihan Aksara Jawa Bab 3" required />
             </div>
 
-            <div>
-              <h4 style={{ fontWeight: '800', color: '#374151', fontSize: '15px', marginBottom: '12px' }}>Soal Pilihan Ganda</h4>
-              {mcQuestions.map((q, i) => (
-                <div key={i} style={{ background: '#F0FFF4', borderRadius: '12px', padding: '16px', border: '1.5px solid #BBF7D0', marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <span style={{ fontWeight: '800', fontSize: '14px', color: '#065F46' }}>Soal {i + 1}</span>
-                    {mcQuestions.length > 1 && (
-                      <button type="button" onClick={() => setMcQuestions(prev => prev.filter((_, j) => j !== i))}
-                        style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '18px' }}>✕</button>
-                    )}
+            {mapConfig.lkpdPilgan && (
+              <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: '12px', border: '1.5px solid #E2E8F0' }}>
+                <h4 style={{ fontWeight: '800', color: '#374151', fontSize: '15px', marginBottom: '8px' }}>📝 Soal Pilihan Ganda (Otomatis)</h4>
+                <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '16px' }}>Nilai pilihan ganda akan langsung dihitung dan ditambahkan ke profil siswa.</p>
+                {mcQuestions.map((q, i) => (
+                  <div key={i} style={{ background: '#F0FFF4', borderRadius: '12px', padding: '16px', border: '1.5px solid #BBF7D0', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <span style={{ fontWeight: '800', fontSize: '14px', color: '#065F46' }}>Soal Pilgan {i + 1}</span>
+                      {mcQuestions.length > 1 && (
+                        <button type="button" onClick={() => setMcQuestions(prev => prev.filter((_, j) => j !== i))}
+                          style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '18px' }}>✕</button>
+                      )}
+                    </div>
+                    <input style={{ ...inputStyle, marginBottom: '8px' }} value={q.question} onChange={e => setMcQuestions(prev => prev.map((s, j) => j === i ? { ...s, question: e.target.value } : s))} placeholder="Pertanyaan..." />
+                    <div style={{ fontSize: '13px', color: '#065F46', marginBottom: '8px', fontWeight: 'bold' }}>Pilihan Jawaban (Pilih radio button untuk menentukan kunci jawaban yang benar):</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input type="radio" name={`correct_${i}`} checked={q.correct === 'A'} onChange={() => setMcQuestions(prev => prev.map((s, j) => j === i ? { ...s, correct: 'A' } : s))} />
+                        <input style={{ ...inputStyle, flex: 1 }} value={q.optA} onChange={e => setMcQuestions(prev => prev.map((s, j) => j === i ? { ...s, optA: e.target.value } : s))} placeholder="Pilihan A" />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input type="radio" name={`correct_${i}`} checked={q.correct === 'B'} onChange={() => setMcQuestions(prev => prev.map((s, j) => j === i ? { ...s, correct: 'B' } : s))} />
+                        <input style={{ ...inputStyle, flex: 1 }} value={q.optB} onChange={e => setMcQuestions(prev => prev.map((s, j) => j === i ? { ...s, optB: e.target.value } : s))} placeholder="Pilihan B" />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input type="radio" name={`correct_${i}`} checked={q.correct === 'C'} onChange={() => setMcQuestions(prev => prev.map((s, j) => j === i ? { ...s, correct: 'C' } : s))} />
+                        <input style={{ ...inputStyle, flex: 1 }} value={q.optC} onChange={e => setMcQuestions(prev => prev.map((s, j) => j === i ? { ...s, optC: e.target.value } : s))} placeholder="Pilihan C" />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input type="radio" name={`correct_${i}`} checked={q.correct === 'D'} onChange={() => setMcQuestions(prev => prev.map((s, j) => j === i ? { ...s, correct: 'D' } : s))} />
+                        <input style={{ ...inputStyle, flex: 1 }} value={q.optD} onChange={e => setMcQuestions(prev => prev.map((s, j) => j === i ? { ...s, optD: e.target.value } : s))} placeholder="Pilihan D" />
+                      </div>
+                    </div>
                   </div>
-                  <input style={{ ...inputStyle, marginBottom: '8px' }} value={q.question} onChange={e => setMcQuestions(prev => prev.map((s, j) => j === i ? { ...s, question: e.target.value } : s))} placeholder="Pertanyaan..." />
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-                    <input style={inputStyle} value={q.optA} onChange={e => setMcQuestions(prev => prev.map((s, j) => j === i ? { ...s, optA: e.target.value } : s))} placeholder="Pilihan A" />
-                    <input style={inputStyle} value={q.optB} onChange={e => setMcQuestions(prev => prev.map((s, j) => j === i ? { ...s, optB: e.target.value } : s))} placeholder="Pilihan B" />
-                    <input style={inputStyle} value={q.optC} onChange={e => setMcQuestions(prev => prev.map((s, j) => j === i ? { ...s, optC: e.target.value } : s))} placeholder="Pilihan C" />
-                  </div>
-                  <input style={{ ...inputStyle, borderColor: '#10B981' }} value={q.correct} onChange={e => setMcQuestions(prev => prev.map((s, j) => j === i ? { ...s, correct: e.target.value } : s))} placeholder="✅ Jawaban benar (harus sama persis dengan salah satu pilihan)" />
-                </div>
-              ))}
-              <button type="button" onClick={() => setMcQuestions(prev => [...prev, { question: '', optA: '', optB: '', optC: '', correct: '' }])}
-                style={{ ...addBtnStyle, background: '#F0FFF4', color: '#065F46', border: '1.5px dashed #10B981' }}>➕ Tambah Soal Pilihan Ganda</button>
-            </div>
+                ))}
+                <button type="button" onClick={() => setMcQuestions(prev => [...prev, { question: '', optA: '', optB: '', optC: '', optD: '', correct: 'A' }])}
+                  style={{ ...addBtnStyle, background: '#F0FFF4', color: '#065F46', border: '1.5px dashed #10B981' }}>➕ Tambah Soal Pilihan Ganda</button>
+              </div>
+            )}
 
-            <div>
-              <h4 style={{ fontWeight: '800', color: '#374151', fontSize: '15px', marginBottom: '12px' }}>Soal Esai / Isian</h4>
-              {textQuestions.map((q, i) => (
-                <div key={i} style={{ background: '#FFF7ED', borderRadius: '12px', padding: '16px', border: '1.5px solid #FED7AA', marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <span style={{ fontWeight: '800', fontSize: '14px', color: '#92400E' }}>Soal Esai {i + 1}</span>
-                    {textQuestions.length > 1 && (
-                      <button type="button" onClick={() => setTextQuestions(prev => prev.filter((_, j) => j !== i))}
-                        style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '18px' }}>✕</button>
-                  )}
+            {mapConfig.lkpdUraian && (
+              <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: '12px', border: '1.5px solid #E2E8F0', marginTop: '8px' }}>
+                <h4 style={{ fontWeight: '800', color: '#374151', fontSize: '15px', marginBottom: '8px' }}>✍️ Soal Uraian / Esai (Manual)</h4>
+                <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '16px' }}>Siswa akan mengisi form teks panjang. Jawaban akan masuk ke Panel Guru untuk dikoreksi dan dinilai secara manual.</p>
+                {textQuestions.map((q, i) => (
+                  <div key={i} style={{ background: '#FFF7ED', borderRadius: '12px', padding: '16px', border: '1.5px solid #FED7AA', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <span style={{ fontWeight: '800', fontSize: '14px', color: '#92400E' }}>Soal Uraian {i + 1}</span>
+                      {textQuestions.length > 1 && (
+                        <button type="button" onClick={() => setTextQuestions(prev => prev.filter((_, j) => j !== i))}
+                          style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '18px' }}>✕</button>
+                      )}
+                    </div>
+                    <textarea style={{ ...inputStyle, marginBottom: '8px', minHeight: '60px' }} value={q.question} onChange={e => setTextQuestions(prev => prev.map((s, j) => j === i ? { ...s, question: e.target.value } : s))} placeholder="Pertanyaan uraian (contoh: Sebutake 3 tokoh ing crita...)" />
+                    <input style={{ ...inputStyle, borderColor: '#F59E0B' }} value={q.correct} onChange={e => setTextQuestions(prev => prev.map((s, j) => j === i ? { ...s, correct: e.target.value } : s))} placeholder="Kunci/Referensi Jawaban (opsional, untuk panduan koreksi guru)" />
                   </div>
-                  <input style={{ ...inputStyle, marginBottom: '8px' }} value={q.question} onChange={e => setTextQuestions(prev => prev.map((s, j) => j === i ? { ...s, question: e.target.value } : s))} placeholder="Pertanyaan esai..." />
-                  <input style={{ ...inputStyle, borderColor: '#F59E0B' }} value={q.correct} onChange={e => setTextQuestions(prev => prev.map((s, j) => j === i ? { ...s, correct: e.target.value } : s))} placeholder="✅ Kunci jawaban yang diterima" />
-                </div>
-              ))}
-              <button type="button" onClick={() => setTextQuestions(prev => [...prev, { question: '', correct: '' }])}
-                style={{ ...addBtnStyle, background: '#FFF7ED', color: '#92400E', border: '1.5px dashed #F59E0B' }}>➕ Tambah Soal Esai</button>
-            </div>
+                ))}
+                <button type="button" onClick={() => setTextQuestions(prev => [...prev, { question: '', correct: '' }])}
+                  style={{ ...addBtnStyle, background: '#FFF7ED', color: '#92400E', border: '1.5px dashed #F59E0B' }}>➕ Tambah Soal Uraian</button>
+              </div>
+            )}
+            
+            {!mapConfig.lkpdPilgan && !mapConfig.lkpdUraian && (
+              <div style={{ padding: '24px', textAlign: 'center', background: '#FEE2E2', borderRadius: '12px', color: '#991B1B', fontWeight: 'bold' }}>
+                ⚠️ Anda menonaktifkan kedua jenis LKPD di Pengaturan Peta. Siswa tidak akan mendapatkan soal di bab ini.
+              </div>
+            )}
           </div>
         )}
 
@@ -610,41 +692,41 @@ function ChapterForm({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div>
               <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1F2937', marginBottom: '4px' }}>🎮 Pilih Jenis Gamifikasi</h3>
-              <p style={{ color: '#6B7280', fontSize: '14px', marginBottom: '16px' }}>Pilih jenis game utama untuk bab ini.</p>
+              <p style={{ color: '#6B7280', fontSize: '14px', marginBottom: '16px' }}>Pilih satu jenis game utama untuk bab ini. Pilih game lain akan mereset konfigurasi sebelumnya.</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
                 {GAME_TYPES.map(g => (
                   <div key={g.type}
-                    onClick={() => toggleGame(g.type)}
+                    onClick={() => selectGame(g.type)}
                     style={{
                       padding: '16px',
                       borderRadius: '16px',
-                      border: `2.5px solid ${selectedGames.includes(g.type) ? '#D97706' : '#E5E7EB'}`,
-                      background: selectedGames.includes(g.type) ? '#FFF7ED' : '#FAFAFA',
+                      border: `2.5px solid ${selectedGames[0] === g.type ? '#D97706' : '#E5E7EB'}`,
+                      background: selectedGames[0] === g.type ? '#FFF7ED' : '#FAFAFA',
                       cursor: 'pointer',
                       transition: 'all 0.15s',
-                      transform: selectedGames.includes(g.type) ? 'scale(1.02)' : 'scale(1)',
+                      transform: selectedGames[0] === g.type ? 'scale(1.02)' : 'scale(1)',
                     }}>
                     <div style={{ fontSize: '28px', marginBottom: '8px' }}>{g.icon}</div>
                     <div style={{ fontWeight: '800', fontSize: '14px', color: '#1F2937', marginBottom: '4px' }}>{g.label}</div>
                     <div style={{ fontSize: '12px', color: '#6B7280', lineHeight: '1.4' }}>{g.desc}</div>
-                    {selectedGames.includes(g.type) && (
-                      <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: '800', color: '#D97706' }}>✓ Dipilih {selectedGames.indexOf(g.type) === 0 ? '(Utama)' : ''}</div>
+                    {selectedGames[0] === g.type && (
+                      <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: '800', color: '#D97706' }}>✓ Dipilih (Aktif)</div>
                     )}
                   </div>
                 ))}
               </div>
               {selectedGames.length > 0 && (
                 <p style={{ marginTop: '12px', fontSize: '13px', color: '#6B7280' }}>
-                  Terpilih: <strong>{selectedGames.map(g => GAME_TYPES.find(t => t.type === g)?.label).join(', ')}</strong>
+                  Game aktif: <strong>{GAME_TYPES.find(t => t.type === selectedGames[0])?.label}</strong>
                 </p>
               )}
             </div>
 
-            {/* Aksara Pairs Configuration (Aksara Drag, Memory Match, Speed Run, Bubble Pop) */}
-            {(selectedGames[0] === 'aksara-drag' || selectedGames[0] === 'memory-match' || selectedGames[0] === 'speed-run' || selectedGames[0] === 'bubble-pop') && (
+            {/* Aksara Pairs Configuration (Aksara Drag, Memory Match, Speed Run, Bubble Pop, Line Match) */}
+            {(selectedGames[0] === 'aksara-drag' || selectedGames[0] === 'memory-match' || selectedGames[0] === 'speed-run' || selectedGames[0] === 'bubble-pop' || selectedGames[0] === 'line-match') && (
               <div style={{ background: '#FFFBEF', borderRadius: '12px', padding: '16px', border: '1.5px solid #FDE68A', marginBottom: '16px' }}>
                 <h4 style={{ fontWeight: '800', color: '#92400E', marginBottom: '8px' }}>
-                  ✍️ Konfigurasi Pasangan Aksara
+                  ✍️ Konfigurasi Pasangan (Ngoko-Krama / Aksara-Latin)
                 </h4>
                 <p style={{ fontSize: '12px', color: '#6B7280', marginBottom: '16px', lineHeight: '1.4' }}>
                   {selectedGames[0] === 'bubble-pop' 
@@ -656,12 +738,12 @@ function ChapterForm({
                 </p>
                 {aksaraPairs.map((pair, i) => (
                   <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
-                    <input style={inputStyle} value={pair.aksara} onChange={e => setAksaraPairs(prev => prev.map((p, j) => j === i ? { ...p, aksara: e.target.value } : p))} placeholder="Aksara Jawa (cth: ꦱ)" />
-                    <input style={inputStyle} value={pair.latin} onChange={e => setAksaraPairs(prev => prev.map((p, j) => j === i ? { ...p, latin: e.target.value } : p))} placeholder="Transliterasi latin (cth: sa)" />
+                    <input style={inputStyle} value={pair.aksara} onChange={e => setAksaraPairs(prev => prev.map((p, j) => j === i ? { ...p, aksara: e.target.value } : p))} placeholder="Kiri (cth: Ngoko / ꦱ)" />
+                    <input style={inputStyle} value={pair.latin} onChange={e => setAksaraPairs(prev => prev.map((p, j) => j === i ? { ...p, latin: e.target.value } : p))} placeholder="Kanan (cth: Krama / sa)" />
                     {aksaraPairs.length > 1 && <button type="button" onClick={() => setAksaraPairs(prev => prev.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '20px' }}>✕</button>}
                   </div>
                 ))}
-                <button type="button" onClick={() => setAksaraPairs(prev => [...prev, { aksara: '', latin: '' }])} style={addBtnStyle}>➕ Tambah Pasangan Aksara</button>
+                <button type="button" onClick={() => setAksaraPairs(prev => [...prev, { aksara: '', latin: '' }])} style={addBtnStyle}>➕ Tambah Pasangan</button>
 
                 {/* Additional field for Bubble Pop distractors */}
                 {selectedGames[0] === 'bubble-pop' && (
@@ -778,26 +860,32 @@ const addBtnStyle: React.CSSProperties = {
 // ──────────────────────────────────────────────
 export default function GuruDashboard() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [activeTab, setActiveTab] = useState<'stats' | 'chapters' | 'editor'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'chapters' | 'editor' | 'koreksi'>('stats');
   const [scoreLogs, setScoreLogs] = useState<ScoreLog[]>([]);
   const [visitorLogs, setVisitorLogs] = useState<VisitorLog[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [editingChapter, setEditingChapter] = useState<Chapter | null | undefined>(undefined); // undefined = hidden, null = new
   const [chapterFilter, setChapterFilter] = useState('all');
   const [activityFilter, setActivityFilter] = useState('all');
+  const [classFilter, setClassFilter] = useState('all');
+  const [thursdayMode, setThursdayMode] = useState(false);
 
   useEffect(() => {
     setIsLoggedIn(isTeacherLoggedIn());
+    setThursdayMode(isThursdayMode());
   }, []);
+
+  const [uraianSubmissions, setUraianSubmissions] = useState<any[]>([]);
 
   const loadData = useCallback(async () => {
     try {
-      const [scores, visitors, chaps] = await Promise.all([
-        getScoreLogs(), getVisitorLogs(), getChaptersList()
+      const [scores, visitors, chaps, uraian] = await Promise.all([
+        getScoreLogs(), getVisitorLogs(), getChaptersList(), getUraianSubmissions()
       ]);
       setScoreLogs(scores);
       setVisitorLogs(visitors);
       setChapters(chaps);
+      setUraianSubmissions(uraian);
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     }
@@ -867,7 +955,8 @@ export default function GuruDashboard() {
   const filteredScores = scoreLogs.filter(log => {
     const matchCh = chapterFilter === 'all' || log.chapterId.toString() === chapterFilter;
     const matchAct = activityFilter === 'all' || log.activityType === activityFilter;
-    return matchCh && matchAct;
+    const matchClass = classFilter === 'all' || log.studentClass === classFilter;
+    return matchCh && matchAct && matchClass;
   });
 
   const tabStyle = (tab: string): React.CSSProperties => ({
@@ -913,6 +1002,7 @@ export default function GuruDashboard() {
         {/* Tab Nav */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '32px', background: 'rgba(255,255,255,0.5)', padding: '8px', borderRadius: '16px', border: '1.5px solid rgba(201,146,58,0.2)', flexWrap: 'wrap' }}>
           <button style={tabStyle('stats')} onClick={() => setActiveTab('stats')}>📊 Statistik & Nilai</button>
+          <button style={tabStyle('koreksi')} onClick={() => setActiveTab('koreksi')}>✍️ Koreksi Uraian</button>
           <button style={tabStyle('chapters')} onClick={() => { setActiveTab('chapters'); setEditingChapter(undefined); }}>📚 Kelola Bab</button>
           <button style={{ ...tabStyle('editor'), background: '#D97706', color: '#fff', borderBottom: '4px solid rgba(74,30,8,0.3)' }}
             onClick={() => { setEditingChapter(null); setActiveTab('editor'); }}>
@@ -939,11 +1029,52 @@ export default function GuruDashboard() {
               ))}
             </div>
 
+            {/* Thursday Mode Toggle */}
+            <div style={{ background: thursdayMode ? 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)' : '#fff', borderRadius: '20px', border: `2px solid ${thursdayMode ? '#D97706' : '#E5E7EB'}`, padding: '24px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', boxShadow: thursdayMode ? '0 4px 16px rgba(217,119,6,0.15)' : '0 4px 16px rgba(0,0,0,0.05)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ fontSize: '40px' }}>📅</div>
+                <div>
+                  <div style={{ fontWeight: '900', fontSize: '16px', color: thursdayMode ? '#92400E' : '#1F2937' }}>
+                    Mode Hari Kamis
+                    {thursdayMode && <span style={{ marginLeft: '10px', padding: '2px 10px', borderRadius: '20px', background: '#D97706', color: '#fff', fontSize: '12px', fontWeight: '800' }}>● AKTIF</span>}
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px', lineHeight: '1.5' }}>
+                    Aktifkan mode ini agar halaman Sinau Unggah-Ungguh Basa Jawa (Kamis) muncul di beranda siswa meskipun bukan hari Kamis. Berguna untuk demo atau latihan di hari lain.
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const newVal = !thursdayMode;
+                  setSimulatedThursday(newVal);
+                  setThursdayMode(newVal);
+                  window.dispatchEvent(new Event('thursdayModeChanged'));
+                }}
+                style={{
+                  padding: '12px 28px', borderRadius: '14px', border: 'none',
+                  borderBottom: `4px solid ${thursdayMode ? 'rgba(120,60,0,0.4)' : 'rgba(0,0,0,0.15)'}`,
+                  background: thursdayMode ? 'linear-gradient(135deg, #D97706, #B45309)' : '#F3F4F6',
+                  color: thursdayMode ? '#fff' : '#374151',
+                  fontWeight: '900', fontSize: '14px', fontFamily: 'inherit',
+                  cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                  transition: 'all 0.2s',
+                }}
+              >
+                {thursdayMode ? '🔴 Matikan Mode Kamis' : '🟢 Aktifkan Mode Kamis'}
+              </button>
+            </div>
+
             {/* Score table */}
             <div style={{ background: '#fff', borderRadius: '20px', border: '1.5px solid #E5E7EB', padding: '24px', marginBottom: '24px', boxShadow: '0 4px 16px rgba(0,0,0,0.05)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                 <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#1F2937' }}>📝 Rekap Nilai Siswa</h2>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <select value={classFilter} onChange={e => setClassFilter(e.target.value)} style={{ padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #E5E7EB', fontSize: '13px', fontFamily: 'inherit' }}>
+                    <option value="all">Semua Kelas</option>
+                    {Array.from(new Set([...scoreLogs.map(l => l.studentClass), ...visitorLogs.map(v => v.className)])).filter(Boolean).sort().map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
                   <select value={chapterFilter} onChange={e => setChapterFilter(e.target.value)} style={{ padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #E5E7EB', fontSize: '13px', fontFamily: 'inherit' }}>
                     <option value="all">Semua Bab</option>
                     {chapters.map(c => <option key={c.id} value={c.id.toString()}>{c.title}</option>)}
@@ -1031,6 +1162,109 @@ export default function GuruDashboard() {
           </div>
         )}
 
+        {/* ── KOREKSI URAIAN TAB ── */}
+        {activeTab === 'koreksi' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '22px', fontWeight: '900', color: '#1F2937' }}>✍️ Koreksi Jawaban Uraian</h2>
+            </div>
+            
+            {uraianSubmissions.filter(s => s.score === null).length === 0 ? (
+              <div style={{ background: '#fff', borderRadius: '20px', border: '1.5px solid #E5E7EB', padding: '32px', textAlign: 'center', boxShadow: '0 4px 16px rgba(0,0,0,0.05)' }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1F2937', marginBottom: '8px' }}>Wah, Hebat!</h3>
+                <p style={{ color: '#6B7280', fontSize: '14px' }}>Tidak ada jawaban uraian yang perlu dikoreksi saat ini.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: '16px' }}>
+                {uraianSubmissions.filter(s => s.score === null).map((sub, idx) => {
+                  const chapter = chapters.find(c => c.id === sub.chapterId);
+                  const questions = chapter?.lkpd?.questions?.filter(q => q.type === 'text') || [];
+                  const answers = typeof sub.answers === 'string' ? JSON.parse(sub.answers) : sub.answers;
+                  
+                  return (
+                    <div key={sub.id} style={{ background: '#fff', borderRadius: '20px', border: '1.5px solid #F59E0B', padding: '24px', boxShadow: '0 4px 16px rgba(245,158,11,0.05)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #F3F4F6', paddingBottom: '16px', marginBottom: '16px' }}>
+                        <div>
+                          <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1F2937', marginBottom: '4px' }}>{sub.studentName} <span style={{ fontSize: '14px', color: '#6B7280', fontWeight: 'normal' }}>({sub.studentClass})</span></h3>
+                          <div style={{ color: '#D97706', fontSize: '14px', fontWeight: '600' }}>Bab: {chapter?.title}</div>
+                        </div>
+                      </div>
+                      
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+                        {questions.map((q, i) => (
+                          <div key={i} style={{ background: '#FFF7ED', padding: '16px', borderRadius: '12px', border: '1px solid #FED7AA' }}>
+                            <div style={{ fontWeight: '700', color: '#92400E', fontSize: '14px', marginBottom: '8px' }}>Pertanyaan {i + 1}: {q.question}</div>
+                            <div style={{ background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #E5E7EB', fontSize: '14px', color: '#374151', minHeight: '40px' }}>
+                              {answers[q.id] || <i style={{ color: '#9CA3AF' }}>Tidak dijawab</i>}
+                            </div>
+                            {q.correctAnswer && (
+                              <div style={{ marginTop: '8px', fontSize: '13px', color: '#059669', fontStyle: 'italic' }}>
+                                💡 Kunci/Referensi: {q.correctAnswer}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', background: '#F8FAFC', padding: '16px', borderRadius: '12px' }}>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#374151', marginBottom: '6px' }}>Beri Nilai (0 - 100)</label>
+                          <input type="number" id={`score_${sub.id}`} min="0" max="100" style={{ width: '100px', padding: '10px 14px', borderRadius: '8px', border: '2px solid #E5E7EB', fontSize: '16px', fontWeight: 'bold' }} defaultValue="100" />
+                        </div>
+                        <button onClick={async () => {
+                          const scoreInput = document.getElementById(`score_${sub.id}`) as HTMLInputElement;
+                          const score = parseInt(scoreInput.value);
+                          if (isNaN(score) || score < 0 || score > 100) return alert("Nilai harus antara 0-100!");
+                          
+                          try {
+                            await gradeUraian(sub.id, score, chapter?.title || 'Bab Unknown');
+                            alert("Berhasil dinilai!");
+                            loadData(); // Refresh list
+                          } catch(e) {
+                            alert("Gagal menilai!");
+                          }
+                        }} style={{ padding: '10px 24px', background: '#10B981', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '800', cursor: 'pointer' }}>
+                          ✅ Simpan Nilai
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            
+            {uraianSubmissions.filter(s => s.score !== null).length > 0 && (
+              <div style={{ marginTop: '40px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#374151', marginBottom: '16px' }}>Riwayat Koreksi</h3>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+                  <thead style={{ background: '#F3F4F6' }}>
+                    <tr>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '700' }}>Nama</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '700' }}>Kelas</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '700' }}>Bab</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '700' }}>Nilai</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {uraianSubmissions.filter(s => s.score !== null).map(sub => {
+                      const chapter = chapters.find(c => c.id === sub.chapterId);
+                      return (
+                        <tr key={sub.id} style={{ borderBottom: '1px solid #E5E7EB' }}>
+                          <td style={{ padding: '12px 16px' }}>{sub.studentName}</td>
+                          <td style={{ padding: '12px 16px' }}>{sub.studentClass}</td>
+                          <td style={{ padding: '12px 16px' }}>{chapter?.title}</td>
+                          <td style={{ padding: '12px 16px', fontWeight: '800', color: '#059669' }}>{sub.score}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── CHAPTERS TAB ── */}
         {activeTab === 'chapters' && editingChapter === undefined && (
           <div>
@@ -1042,7 +1276,7 @@ export default function GuruDashboard() {
               </button>
             </div>
             <div style={{ display: 'grid', gap: '12px' }}>
-              {chapters.map(ch => {
+              {chapters.map((ch, idx) => {
                 const isOverride = !!(ch as any)._isOverride;
                 const isBuiltin = ch.id < 1000;
                 const isCustom = ch.id >= 1000;
@@ -1052,9 +1286,9 @@ export default function GuruDashboard() {
                 <div key={ch.id} style={{ background: '#fff', borderRadius: '16px', border: `1.5px solid ${isOverride ? '#FDE68A' : '#E5E7EB'}`, padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
                   <div style={{ fontSize: '36px', width: '52px', height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isOverride ? '#FEF9C3' : '#FFF7ED', borderRadius: '12px', flexShrink: 0 }}>{ch.icon}</div>
                   <div style={{ flexGrow: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: '800', fontSize: '16px', color: '#1F2937' }}>Bab {ch.id}: {ch.title}</div>
-                    <div style={{ fontSize: '13px', color: '#6B7280', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ch.description}</div>
-                    <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                    <div style={{ fontWeight: '800', fontSize: '16px', color: '#1F2937' }}>Bab {idx + 1}: {ch.title}</div>
+                    <div style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px', lineHeight: '1.5', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ch.description}</div>
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '10px', flexWrap: 'wrap' }}>
                       <span style={{ padding: '2px 8px', borderRadius: '20px', background: '#ECFDF5', color: '#065F46', fontSize: '11px', fontWeight: '800' }}>📚 {(ch.materi?.sections?.length || 0)} Sub-materi</span>
                       <span style={{ padding: '2px 8px', borderRadius: '20px', background: '#EFF6FF', color: '#1D4ED8', fontSize: '11px', fontWeight: '800' }}>📋 {ch.lkpd?.questions?.length || 0} Soal</span>
                       <span style={{ padding: '2px 8px', borderRadius: '20px', background: '#FFF7ED', color: '#92400E', fontSize: '11px', fontWeight: '800' }}>🎮 {ch.game?.type}</span>
